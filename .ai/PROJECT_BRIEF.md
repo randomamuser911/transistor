@@ -57,6 +57,7 @@ Minimalist Android internet radio player; imports M3U/PLS streams, searches radi
 - Locale config (`@xml/locales_config`) for per-app language picker.
 - radio-browser.info HTTP API — station search backend.
 - Android `Vibrator` — haptic feedback.
+- Local network permission (`ACCESS_LOCAL_NETWORK`, API 37+) — requested via Settings → "Allow Local Streams" (`SettingsFragment`); `BasePlayerService`'s load-error policy shows a hint on the first connection error without it.
 
 ## Key dependencies
 - `androidx.media3` (exoplayer, exoplayer-hls, session) — playback, session, HLS.
