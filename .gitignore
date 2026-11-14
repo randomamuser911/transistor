@@ -4,5 +4,6 @@
 /local.properties
 /.idea
 /build
+/.kotlin
 /captures
 /app/release
