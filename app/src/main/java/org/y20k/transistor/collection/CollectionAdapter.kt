@@ -310,6 +310,7 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
             true -> stationViewHolder.playButtonView.setImageResource(R.drawable.ic_stop_circle_outline_36dp)
             false -> stationViewHolder.playButtonView.setImageResource(R.drawable.ic_play_circle_outline_36dp)
         }
+        stationViewHolder.nowPlayingIndicatorView.isVisible = station.isPlaying
         stationViewHolder.playButtonView.setOnClickListener {
                 collectionAdapterListener.onPlayButtonTapped(stationViewHolder.adapterPosition)
         }
@@ -589,6 +590,7 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
         val stationImageView: ImageView = stationCardLayout.findViewById(R.id.station_icon)
         val stationNameView: TextView = stationCardLayout.findViewById(R.id.station_name)
         val stationStarredView: ImageView = stationCardLayout.findViewById(R.id.starred_icon)
+        val nowPlayingIndicatorView: ImageView = stationCardLayout.findViewById(R.id.now_playing_indicator)
 //        val menuButtonView: ImageView = stationCardLayout.findViewById(R.id.menu_button)
         val playButtonView: ImageButton = stationCardLayout.findViewById(R.id.playback_button)
         val editViews: Group = stationCardLayout.findViewById(R.id.default_edit_views)

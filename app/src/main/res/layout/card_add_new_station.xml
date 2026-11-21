@@ -6,10 +6,10 @@
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/card_add_new_station"
-        style="?attr/materialButtonOutlinedStyle"
+        style="@style/Widget.Material3.Button.TonalButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
+        android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="16dp"
@@ -23,10 +23,10 @@
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/card_settings"
-        style="?attr/materialButtonOutlinedStyle"
+        style="@style/Widget.Material3.Button.TextButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
+        android:layout_marginEnd="16dp"
         android:text="@string/station_list_button_settings"
         app:icon="@drawable/ic_settings_18dp"
         app:iconGravity="textStart"

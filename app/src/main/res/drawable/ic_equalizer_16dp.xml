@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- small now-playing indicator (three rounded bars) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3,6h1.6v4h-1.6z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M7.2,3h1.6v10h-1.6z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M11.4,6h1.6v4h-1.6z" />
+</vector>

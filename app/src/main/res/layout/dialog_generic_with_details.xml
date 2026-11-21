@@ -33,7 +33,7 @@
             android:scrollbars="vertical"
             android:text="@string/dialog_generic_details_button"
             android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
-            android:textColor="?attr/colorOnSurface"
+            android:textColor="?attr/colorPrimary"
             android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
