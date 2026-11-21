@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<org.y20k.transistor.ui.PlayerSheetGestureFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/player_sheet_root"
@@ -47,6 +47,18 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:srcCompat="@drawable/ic_more_vert_24dp"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <ImageButton
+                android:id="@+id/player_sheet_shuffle_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="-12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/descr_player_sheet_shuffle_button"
+                app:layout_constraintEnd_toStartOf="@+id/player_sheet_more_button"
+                app:layout_constraintTop_toTopOf="parent"
+                app:srcCompat="@drawable/ic_shuffle_24dp"
                 app:tint="?attr/colorOnSurfaceVariant" />
 
             <com.google.android.material.imageview.ShapeableImageView
@@ -292,4 +304,4 @@
 
     </androidx.core.widget.NestedScrollView>
 
-</FrameLayout>
+</org.y20k.transistor.ui.PlayerSheetGestureFrameLayout>

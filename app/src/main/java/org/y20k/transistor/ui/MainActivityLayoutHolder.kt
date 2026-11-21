@@ -21,14 +21,19 @@ import android.graphics.Color
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.graphics.drawable.ColorDrawable
 import android.media.AudioManager
+import android.media.audiofx.Equalizer
 import android.os.Build
 import android.support.v4.media.session.PlaybackStateCompat
+import android.util.Log
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.widget.PopupMenu
@@ -47,6 +52,7 @@ import com.bumptech.glide.signature.ObjectKey
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.imageview.ShapeableImageView
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import com.google.android.material.textview.MaterialTextView
 import org.y20k.transistor.Keys
@@ -54,6 +60,8 @@ import org.y20k.transistor.R
 import org.y20k.transistor.SettingsFragment
 import org.y20k.transistor.core.Station
 import org.y20k.transistor.helpers.DateTimeHelper
+import org.y20k.transistor.helpers.EqualizerManager
+import org.y20k.transistor.helpers.ImageHelper
 import org.y20k.transistor.helpers.PreferencesHelper
 import org.y20k.transistor.helpers.UiHelper
 import java.io.File
@@ -94,6 +102,7 @@ data class MainActivityLayoutHolder (var rootView: View) : MainFragmentLayoutHol
     /* Full screen now playing sheet */
     private val playerSheetView: View
     private val playerSheetContentView: View
+    private var backdropKey: String = String()
     private val playerSheetStationImage: ShapeableImageView
     private val playerSheetStationName: MaterialTextView
     private val playerSheetStationMetadata: MaterialTextView
@@ -101,8 +110,13 @@ data class MainActivityLayoutHolder (var rootView: View) : MainFragmentLayoutHol
     private var playerSheetBufferingIndicator: ProgressBar
     private var playerSheetCollapseButton: ImageButton
     private var playerSheetMoreButton: ImageButton
+    var playerSheetShuffleButton: ImageButton
     private var playerSheetVolumeSlider: Slider
     private val audioManager: AudioManager?
+
+    /* Swipe listeners - set from the activity, which owns the media controller */
+    var onSwipeToNextStationListener: (() -> Unit)? = null
+    var onSwipeToPreviousStationListener: (() -> Unit)? = null
 
 
     /* Init block */
@@ -136,6 +150,7 @@ data class MainActivityLayoutHolder (var rootView: View) : MainFragmentLayoutHol
         playerSheetBufferingIndicator = rootView.findViewById(R.id.player_sheet_buffering_indicator)
         playerSheetCollapseButton = rootView.findViewById(R.id.player_sheet_collapse_button)
         playerSheetMoreButton = rootView.findViewById(R.id.player_sheet_more_button)
+        playerSheetShuffleButton = rootView.findViewById(R.id.player_sheet_shuffle_button)
         playerSheetVolumeSlider = rootView.findViewById(R.id.player_sheet_volume_slider)
 
         // set up variables
@@ -173,6 +188,9 @@ data class MainActivityLayoutHolder (var rootView: View) : MainFragmentLayoutHol
 
         // set up edge to edge display
         setupEdgeToEdge()
+
+        // set up sheet gestures (swipe down to close, horizontal fling to switch stations)
+        setupPlayerSheetGestures()
 
         // set layout for player
         setupPlayer()
@@ -225,8 +243,8 @@ data class MainActivityLayoutHolder (var rootView: View) : MainFragmentLayoutHol
         stationImageView.contentDescription = "${context.getString(R.string.descr_player_station_image)}: ${station.name}"
         playerSheetStationImage.contentDescription = "${context.getString(R.string.descr_player_station_image)}: ${station.name}"
 
-        // tint the now playing sheet background with the station color
-        setPlayerSheetBackgroundColor(station.imageColor)
+        // tint the now playing sheet background with a blurred version of the station image
+        setPlayerSheetBackgroundColor(station)
 
         // update streaming link
         playerStreamingLinkView.text = station.getStreamUri()
@@ -239,14 +257,40 @@ data class MainActivityLayoutHolder (var rootView: View) : MainFragmentLayoutHol
     }
 
 
-    /* Tints the now playing sheet background with a darkened version of the station color */
-    private fun setPlayerSheetBackgroundColor(imageColor: Int) {
+    /* Tints the now playing sheet background with a blurred version of the station image */
+    private fun setPlayerSheetBackgroundColor(station: Station) {
         val typedValue: TypedValue = TypedValue()
         playerSheetView.context.theme.resolveAttribute(com.google.android.material.R.attr.colorSurfaceContainerLow, typedValue, true)
         val defaultColor: Int = typedValue.data
-        val backgroundColor: Int = if (imageColor != -1) {
-            // blend the station color towards black for a dark ambient background
-            androidx.core.graphics.ColorUtils.blendARGB(imageColor, Color.BLACK, 0.72f)
+        val imageFile: File = File(station.image.toUri().path ?: "")
+
+        // build the blurred art backdrop only when the station image changed
+        if (imageFile.exists() && imageFile.lastModified().toString() + station.uuid != backdropKey) {
+            backdropKey = imageFile.lastModified().toString() + station.uuid
+            val sampled: android.graphics.Bitmap? = ImageHelper.decodeSampledBitmap(imageFile.absolutePath, 48)
+            if (sampled != null) {
+                ImageHelper.boxBlur(sampled, radius = 4, passes = 3)
+                val blurredDrawable: android.graphics.drawable.BitmapDrawable = android.graphics.drawable.BitmapDrawable(playerSheetView.context.resources, sampled)
+                // dark scrim on top of the art so text stays legible - tinted with the station color when available
+                val scrimColor: Int = if (station.imageColor != -1) {
+                    androidx.core.graphics.ColorUtils.blendARGB(station.imageColor, Color.BLACK, 0.72f)
+                } else {
+                    0xEE101010.toInt()
+                }
+                val scrimDrawable: ColorDrawable = ColorDrawable(scrimColor).mutate() as ColorDrawable
+                scrimDrawable.alpha = 0xD9
+                playerSheetView.background = android.graphics.drawable.LayerDrawable(arrayOf(blurredDrawable, scrimDrawable))
+                return
+            }
+        } else if (imageFile.exists() && playerSheetView.background is android.graphics.drawable.LayerDrawable) {
+            // backdrop already built for this station - keep it
+            return
+        }
+
+        // fallback: plain darkened station color
+        backdropKey = String()
+        val backgroundColor: Int = if (station.imageColor != -1) {
+            androidx.core.graphics.ColorUtils.blendARGB(station.imageColor, Color.BLACK, 0.72f)
         } else {
             defaultColor
         }
@@ -462,6 +506,10 @@ data class MainActivityLayoutHolder (var rootView: View) : MainFragmentLayoutHol
             popupMenu.setOnMenuItemClickListener { menuItem ->
                 val streamingLink: String = playerStreamingLinkView.text.toString()
                 when (menuItem.itemId) {
+                    R.id.menu_equalizer -> {
+                        showEqualizerDialog(anchor.context)
+                        true
+                    }
                     R.id.menu_show_streaming_link -> {
                         showStreamingLinkDialog(anchor.context, streamingLink)
                         true
@@ -497,6 +545,112 @@ data class MainActivityLayoutHolder (var rootView: View) : MainFragmentLayoutHol
     }
 
 
+    /* Displays the equalizer dialog - band sliders are built from the attached equalizer */
+    private fun showEqualizerDialog(context: Context) {
+        val equalizer: Equalizer = EqualizerManager.equalizer ?: run {
+            Toast.makeText(context, R.string.toast_equalizer_not_active, Toast.LENGTH_LONG).show()
+            return
+        }
+        if (!equalizer.hasControl()) {
+            Toast.makeText(context, R.string.toast_equalizer_not_active, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val bandCount: Int = equalizer.numberOfBands.toInt()
+        val levelRange: IntArray = intArrayOf(equalizer.bandLevelRange[0].toInt(), equalizer.bandLevelRange[1].toInt())
+
+        // container: switch + one slider row per band
+        val density: Float = context.resources.displayMetrics.density
+        val container: LinearLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((24 * density).toInt(), (16 * density).toInt(), (24 * density).toInt(), 0)
+        }
+        val enabledSwitch: MaterialSwitch = MaterialSwitch(context).apply {
+            text = context.getString(R.string.dialog_equalizer_enabled)
+            isChecked = equalizer.enabled
+            setOnCheckedChangeListener { _, isChecked ->
+                PreferencesHelper.saveEqualizerEnabled(isChecked)
+                try {
+                    equalizer.enabled = isChecked
+                } catch (e: Exception) {
+                    Log.e(TAG, "Unable to toggle equalizer")
+                }
+            }
+        }
+        container.addView(enabledSwitch)
+
+        for (band: Int in 0 until bandCount) {
+            val freqRange: IntArray = equalizer.getBandFreqRange(band.toShort())
+            val centerFreq: Int = (freqRange[0] + freqRange[1]) / 2
+            val freqLabel: String = if (centerFreq >= 1000) "${centerFreq / 1000} kHz" else "$centerFreq Hz"
+            val row: LinearLayout = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val labelView: TextView = TextView(context).apply {
+                text = freqLabel
+                textSize = 12f
+                width = (56 * density).toInt()
+            }
+            val seekBar: SeekBar = SeekBar(context).apply {
+                max = levelRange[1] - levelRange[0]
+                progress = equalizer.getBandLevel(band.toShort()).toInt() - levelRange[0]
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                        if (!fromUser) return
+                        val level: Int = levelRange[0] + progress
+                        try {
+                            equalizer.setBandLevel(band.toShort(), level.toShort())
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Unable to set equalizer band level")
+                        }
+                        saveEqualizerBandLevels(equalizer, bandCount)
+                    }
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) { }
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) { }
+                })
+            }
+            row.addView(labelView)
+            row.addView(seekBar, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            container.addView(row)
+        }
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.dialog_equalizer_title)
+            .setView(container)
+            .setPositiveButton(R.string.dialog_generic_button_okay) { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setNeutralButton(R.string.dialog_equalizer_flat) { _, _ ->
+                // reset all bands to the center of the level range
+                val centerLevel: Int = (levelRange[0] + levelRange[1]) / 2
+                for (band: Int in 0 until bandCount) {
+                    try {
+                        equalizer.setBandLevel(band.toShort(), centerLevel.toShort())
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Unable to reset equalizer band level")
+                    }
+                }
+                saveEqualizerBandLevels(equalizer, bandCount)
+            }
+            .show()
+    }
+
+
+    /* Saves the current band levels of the equalizer to shared preferences */
+    private fun saveEqualizerBandLevels(equalizer: Equalizer, bandCount: Int) {
+        val bandLevels: MutableList<Int> = mutableListOf()
+        for (band: Int in 0 until bandCount) {
+            try {
+                bandLevels.add(equalizer.getBandLevel(band.toShort()).toInt())
+            } catch (e: Exception) {
+                Log.e(TAG, "Unable to read equalizer band level")
+            }
+        }
+        PreferencesHelper.saveEqualizerBandLevels(bandLevels)
+    }
+
+
     /* Shares the streaming link via an intent */
     private fun shareStreamingLink(context: Context, streamingLink: String) {
         val sendIntent: Intent = Intent(Intent.ACTION_SEND).apply {
@@ -521,6 +675,41 @@ data class MainActivityLayoutHolder (var rootView: View) : MainFragmentLayoutHol
         // set up volume slider and overflow menu
         setupVolumeSlider()
         setupPlayerSheetMenu()
+    }
+
+
+    /* Sets up the swipe gestures of the now playing sheet */
+    private fun setupPlayerSheetGestures() {
+        val gestureFrameLayout: PlayerSheetGestureFrameLayout = playerSheetView as? PlayerSheetGestureFrameLayout ?: return
+        gestureFrameLayout.gestureListener = object : PlayerSheetGestureFrameLayout.GestureListener {
+            override fun onSheetDrag(dy: Float) {
+                // sheet follows the finger - never above its resting position
+                playerSheetView.translationY = dy.coerceAtLeast(0f)
+            }
+
+            override fun onSheetDragEnded(shouldClose: Boolean) {
+                when {
+                    shouldClose -> {
+                        hidePlayerSheet()
+                    }
+                    playerSheetView.translationY > 0f -> {
+                        // spring back into place
+                        playerSheetView.animate()
+                            .translationY(0f)
+                            .setDuration(PLAYER_SHEET_ANIMATION_DURATION)
+                            .start()
+                    }
+                }
+            }
+
+            override fun onSwipeToNextStation() {
+                onSwipeToNextStationListener?.invoke()
+            }
+
+            override fun onSwipeToPreviousStation() {
+                onSwipeToPreviousStationListener?.invoke()
+            }
+        }
     }
 
 

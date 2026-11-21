@@ -245,6 +245,15 @@ abstract class BaseMainActivity : AppCompatActivity(), SharedPreferences.OnShare
             onPlayButtonTapped(playerState.stationPosition)
         }
 
+        // shuffle button - plays a random station
+        layout.playerSheetShuffleButton.setOnClickListener {
+            playRandomStation()
+        }
+
+        // swipe gestures on the now playing sheet switch stations
+        layout.onSwipeToNextStationListener = { controller?.seekToNextMediaItem() }
+        layout.onSwipeToPreviousStationListener = { controller?.seekToPreviousMediaItem() }
+
         // set up sleep timer start button
         layout.playerSleepTimerStartButtonView.setOnClickListener {
             when (controller?.isPlaying) {
@@ -284,6 +293,21 @@ abstract class BaseMainActivity : AppCompatActivity(), SharedPreferences.OnShare
             playerState.stationPosition = stationPosition
             // start playback
             controller?.play(this, stationPosition)
+        }
+    }
+
+
+    /* Plays a random station - prefers a station other than the current one */
+    fun playRandomStation() {
+        CoroutineScope(IO).launch {
+            val collection: Collection = FileHelper.readCollection(getApplication())
+            withContext(Main) {
+                if (collection.stations.isEmpty()) return@withContext
+                val currentPosition: Int = playerState.stationPosition
+                val candidates: List<Int> = collection.stations.indices.filter { it != currentPosition }
+                val position: Int = if (candidates.isEmpty()) 0 else candidates.random()
+                onPlayButtonTapped(position)
+            }
         }
     }
 

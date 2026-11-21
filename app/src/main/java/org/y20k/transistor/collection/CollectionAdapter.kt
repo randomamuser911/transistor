@@ -18,6 +18,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.TypedValue
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -155,7 +156,6 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
                 val stationViewHolder: StationViewHolder = holder
 
                 // set up station views
-                setStarredIcon(stationViewHolder, station)
                 setStationName(stationViewHolder, station, position)
                 setStationImage(stationViewHolder, station, position)
                 setStationButtons(stationViewHolder, station)
@@ -167,7 +167,7 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
                     position -> {
                         stationViewHolder.stationNameView.isVisible = false
                         stationViewHolder.playButtonView.isGone = true
-                        stationViewHolder.stationStarredView.isGone = true
+                        stationViewHolder.starredToggleView.isGone = true
                         stationViewHolder.editViews.isVisible = true
                         if (editStationStreamsEnabled) {
                             stationViewHolder.stationUriEditView.isVisible = true
@@ -181,7 +181,7 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
                     else -> {
                         stationViewHolder.stationNameView.isVisible = true
                         stationViewHolder.playButtonView.isVisible = true
-                        stationViewHolder.stationStarredView.isVisible = station.starred
+                        stationViewHolder.starredToggleView.isVisible = true
                         stationViewHolder.editViews.isGone = true
                         stationViewHolder.stationUriEditView.isGone = true
                     }
@@ -273,21 +273,6 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
     }
 
 
-    /* Toggles the starred icon */
-    private fun setStarredIcon(stationViewHolder: StationViewHolder, station: Station) {
-        when (station.starred) {
-            true -> {
-                if (station.imageColor != -1) {
-                    // stationViewHolder.stationCardView.setCardBackgroundColor(station.imageColor)
-                    stationViewHolder.stationStarredView.setColorFilter(station.imageColor)
-                }
-                stationViewHolder.stationStarredView.isVisible = true
-            }
-            false -> stationViewHolder.stationStarredView.isGone = true
-        }
-    }
-
-
     /* Sets the station image view */
     private fun setStationImage(stationViewHolder: StationViewHolder, station: Station, position: Int) {
         val stationImageFile = File(station.image.toUri().path ?: "")
@@ -304,13 +289,33 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
     }
 
 
-    /* Sets up a station's play and edit buttons */
+    /* Sets up a station's play, star and edit buttons */
     private fun setStationButtons(stationViewHolder: StationViewHolder, station: Station) {
         when (station.isPlaying) {
             true -> stationViewHolder.playButtonView.setImageResource(R.drawable.ic_stop_circle_outline_36dp)
             false -> stationViewHolder.playButtonView.setImageResource(R.drawable.ic_play_circle_outline_36dp)
         }
         stationViewHolder.nowPlayingIndicatorView.isVisible = station.isPlaying
+        // star toggle: filled star tinted with the station color when starred, plain outline otherwise
+        when (station.starred) {
+            true -> {
+                stationViewHolder.starredToggleView.setImageResource(R.drawable.ic_star_default_24dp)
+                if (station.imageColor != -1) {
+                    stationViewHolder.starredToggleView.setColorFilter(station.imageColor)
+                } else {
+                    val typedValue = TypedValue()
+                    context.theme.resolveAttribute(androidx.appcompat.R.attr.colorPrimary, typedValue, true)
+                    stationViewHolder.starredToggleView.setColorFilter(typedValue.data)
+                }
+            }
+            false -> {
+                stationViewHolder.starredToggleView.setImageResource(R.drawable.ic_star_outline_24dp)
+                stationViewHolder.starredToggleView.setColorFilter(null)
+            }
+        }
+        stationViewHolder.starredToggleView.setOnClickListener {
+            toggleStarredStation(context, stationViewHolder.adapterPosition)
+        }
         stationViewHolder.playButtonView.setOnClickListener {
                 collectionAdapterListener.onPlayButtonTapped(stationViewHolder.adapterPosition)
         }
@@ -589,7 +594,7 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
         val stationCardView: ConstraintLayout = stationCardLayout.findViewById(R.id.station_card)
         val stationImageView: ImageView = stationCardLayout.findViewById(R.id.station_icon)
         val stationNameView: TextView = stationCardLayout.findViewById(R.id.station_name)
-        val stationStarredView: ImageView = stationCardLayout.findViewById(R.id.starred_icon)
+        val starredToggleView: ImageButton = stationCardLayout.findViewById(R.id.starred_toggle)
         val nowPlayingIndicatorView: ImageView = stationCardLayout.findViewById(R.id.now_playing_indicator)
 //        val menuButtonView: ImageView = stationCardLayout.findViewById(R.id.menu_button)
         val playButtonView: ImageButton = stationCardLayout.findViewById(R.id.playback_button)

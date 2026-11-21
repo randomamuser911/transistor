@@ -230,6 +230,75 @@ object PreferencesHelper {
     }
 
 
+    /* Saves listening statistics (station uuid to seconds listened) to shared preferences */
+    fun saveListeningStats(listeningStats: Map<String, Long>) {
+        val gson = Gson()
+        val json = gson.toJson(listeningStats)
+        sharedPreferences.edit {
+            putString(Keys.PREF_LISTENING_STATS, json)
+        }
+    }
+
+
+    /* Loads listening statistics (station uuid to seconds listened) from shared preferences */
+    fun loadListeningStats(): MutableMap<String, Long> {
+        val listeningStats: MutableMap<String, Long> = mutableMapOf()
+        val json: String = sharedPreferences.getString(Keys.PREF_LISTENING_STATS, String()) ?: String()
+        if (json.isNotEmpty()) {
+            try {
+                val gson = Gson()
+                val type = object : com.google.gson.reflect.TypeToken<MutableMap<String, Long>>() {}.type
+                val loaded: MutableMap<String, Long>? = gson.fromJson(json, type)
+                if (loaded != null) listeningStats.putAll(loaded)
+            } catch (e: Exception) {
+                Log.e(TAG, "Unable to load listening statistics")
+            }
+        }
+        return listeningStats
+    }
+
+
+    /* Saves equalizer enabled state to shared preferences */
+    fun saveEqualizerEnabled(enabled: Boolean) {
+        sharedPreferences.edit {
+            putBoolean(Keys.PREF_EQUALIZER_ENABLED, enabled)
+        }
+    }
+
+
+    /* Loads equalizer enabled state from shared preferences */
+    fun loadEqualizerEnabled(): Boolean {
+        return sharedPreferences.getBoolean(Keys.PREF_EQUALIZER_ENABLED, false)
+    }
+
+
+    /* Saves equalizer band levels to shared preferences */
+    fun saveEqualizerBandLevels(bandLevels: List<Int>) {
+        val gson = Gson()
+        val json = gson.toJson(bandLevels)
+        sharedPreferences.edit {
+            putString(Keys.PREF_EQUALIZER_BAND_LEVELS, json)
+        }
+    }
+
+
+    /* Loads equalizer band levels from shared preferences */
+    fun loadEqualizerBandLevels(): List<Int> {
+        val bandLevels: MutableList<Int> = mutableListOf()
+        val json: String = sharedPreferences.getString(Keys.PREF_EQUALIZER_BAND_LEVELS, String()) ?: String()
+        if (json.isNotEmpty()) {
+            try {
+                val gson = Gson()
+                val loaded: List<Int>? = gson.fromJson(json, Array<Int>::class.java)?.toList()
+                if (loaded != null) bandLevels.addAll(loaded)
+            } catch (e: Exception) {
+                Log.e(TAG, "Unable to load equalizer band levels")
+            }
+        }
+        return bandLevels
+    }
+
+
     /* Start watching for changes in shared preferences - context must implement OnSharedPreferenceChangeListener */
     fun registerPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
         sharedPreferences.registerOnSharedPreferenceChangeListener(listener)

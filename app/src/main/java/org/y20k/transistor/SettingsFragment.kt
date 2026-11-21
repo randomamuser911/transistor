@@ -32,6 +32,7 @@ import android.widget.Toast
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
@@ -52,8 +53,11 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.color.DynamicColors
 import com.google.android.material.transition.MaterialSharedAxis
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.y20k.transistor.core.Collection
 import org.y20k.transistor.dialogs.ErrorDialog
 import org.y20k.transistor.dialogs.YesNoDialog
 import org.y20k.transistor.helpers.AppThemeHelper
@@ -281,6 +285,16 @@ class SettingsFragment: PreferenceFragmentCompat(), YesNoDialog.YesNoDialogListe
             true
         }
 
+        // set up "Listening Statistics" preference
+        val preferenceListeningStatistics: Preference = Preference(activity as Context)
+        preferenceListeningStatistics.title = getString(R.string.pref_listening_statistics_title)
+        preferenceListeningStatistics.setIcon(R.drawable.ic_bar_chart_24dp)
+        preferenceListeningStatistics.summary = getString(R.string.pref_listening_statistics_summary)
+        preferenceListeningStatistics.setOnPreferenceClickListener {
+            showListeningStatisticsDialog()
+            true
+        }
+
         // set up "App Version" preference
         val preferenceAppVersion: Preference = Preference(context)
         preferenceAppVersion.title = getString(R.string.pref_app_version_title)
@@ -306,6 +320,7 @@ class SettingsFragment: PreferenceFragmentCompat(), YesNoDialog.YesNoDialogListe
         preferenceCategoryGeneral.contains(preferenceEnableDynamicColors)
         preferenceCategoryGeneral.contains(preferenceUserInterfaceTransparencyEffect)
         preferenceCategoryGeneral.contains(preferenceEnableTapAnywherePlayback)
+        preferenceCategoryGeneral.contains(preferenceListeningStatistics)
 
         val preferenceCategoryMaintenance: PreferenceCategory = PreferenceCategory(activity as Context)
         preferenceCategoryMaintenance.title = getString(R.string.pref_maintenance_title)
@@ -332,6 +347,7 @@ class SettingsFragment: PreferenceFragmentCompat(), YesNoDialog.YesNoDialogListe
         screen.addPreference(preferenceEnableDynamicColors)
         screen.addPreference(preferenceUserInterfaceTransparencyEffect)
         screen.addPreference(preferenceEnableTapAnywherePlayback)
+        screen.addPreference(preferenceListeningStatistics)
         screen.addPreference(preferenceCategoryMaintenance)
         screen.addPreference(preferenceUpdateStationImages)
 //        screen.addPreference(preferenceUpdateCollection)
@@ -533,6 +549,54 @@ class SettingsFragment: PreferenceFragmentCompat(), YesNoDialog.YesNoDialogListe
         } catch (exception: Exception) {
             Log.e(TAG, "Unable to save M3U.\n$exception")
             Toast.makeText(activity as Context, R.string.toast_message_install_file_helper, Toast.LENGTH_LONG).show()
+        }
+    }
+
+
+    /* Shows listening statistics - total time and time per station */
+    private fun showListeningStatisticsDialog() {
+        val context: Context = activity as Context
+        CoroutineScope(IO).launch {
+            // gather statistics and station names
+            val listeningStats: Map<String, Long> = PreferencesHelper.loadListeningStats()
+            val collection: Collection = FileHelper.readCollection(context)
+            val stationNames: Map<String, String> = collection.stations.associate { it.uuid to it.name }
+            // build entries sorted by listening time (longest first)
+            val entries: List<Pair<String, Long>> = listeningStats.entries
+                .map { (stationNames[it.key] ?: it.key) to it.value }
+                .sortedByDescending { it.second }
+            val totalSeconds: Long = listeningStats.values.sum()
+            withContext(Dispatchers.Main) {
+                val messageBuilder: StringBuilder = StringBuilder()
+                messageBuilder.append("${getString(R.string.dialog_listening_statistics_total)}: ${formatDuration(totalSeconds)}")
+                if (entries.isNotEmpty()) {
+                    messageBuilder.append("\n\n")
+                    entries.forEach { (name, seconds) ->
+                        messageBuilder.append("- $name: ${formatDuration(seconds)}\n")
+                    }
+                }
+                AlertDialog.Builder(context)
+                    .setTitle(R.string.pref_listening_statistics_title)
+                    .setMessage(messageBuilder.toString().trim())
+                    .setPositiveButton(R.string.dialog_generic_button_okay) { dialog, _ -> dialog.dismiss() }
+                    .setNeutralButton(R.string.dialog_listening_statistics_reset) { _, _ ->
+                        PreferencesHelper.saveListeningStats(mapOf())
+                        Toast.makeText(context, R.string.toast_listening_statistics_reset, Toast.LENGTH_LONG).show()
+                    }
+                    .show()
+            }
+        }
+    }
+
+
+    /* Formats seconds as a human readable duration */
+    private fun formatDuration(seconds: Long): String {
+        if (seconds < 60) return "${seconds}s"
+        val hours: Long = seconds / 3600
+        val minutes: Long = (seconds % 3600) / 60
+        return when {
+            hours > 0 -> "${hours}h ${minutes}m"
+            else -> "${minutes}m"
         }
     }
 

@@ -80,6 +80,7 @@ import org.y20k.transistor.core.Collection
 import org.y20k.transistor.core.Station
 import org.y20k.transistor.helpers.AudioHelper
 import org.y20k.transistor.helpers.CollectionHelper
+import org.y20k.transistor.helpers.EqualizerManager
 import org.y20k.transistor.helpers.FileHelper
 import org.y20k.transistor.helpers.PreferencesHelper
 import org.y20k.transistor.helpers.UiHelper
@@ -112,6 +113,10 @@ abstract class BasePlayerService: MediaLibraryService() {
     private var playLastStation: Boolean = false
     var bufferSizeMultiplier: Int = PreferencesHelper.loadBufferSizeMultiplier()
 
+    /* Listening statistics - current session */
+    private var statsSessionStart: Long = 0L
+    private var statsSessionStationUuid: String = String()
+
 
     /* Overrides onCreate from Service */
     override fun onCreate() {
@@ -136,6 +141,10 @@ abstract class BasePlayerService: MediaLibraryService() {
     /* Overrides onDestroy from Service */
     override fun onDestroy() {
         super.onDestroy()
+        // write remaining listening time to storage
+        flushListeningStatsSession()
+        // let go of the equalizer
+        EqualizerManager.release()
         releaseSession()
     }
 
@@ -305,6 +314,47 @@ abstract class BasePlayerService: MediaLibraryService() {
             Toast.makeText(this, this.getString(R.string.toast_message_error_restart_playback_failed), Toast.LENGTH_LONG).show()
         }
     }
+
+
+    /* Starts a listening statistics session for the given station */
+    private fun startListeningStatsSession(stationUuid: String) {
+        statsSessionStart = System.currentTimeMillis()
+        statsSessionStationUuid = stationUuid
+        handler.removeCallbacks(listeningStatsFlushRunnable)
+        handler.postDelayed(listeningStatsFlushRunnable, Keys.LISTENING_STATS_FLUSH_INTERVAL)
+    }
+
+
+    /* Adds the elapsed time of the current listening statistics session to the stored statistics */
+    private fun flushListeningStatsSession() {
+        handler.removeCallbacks(listeningStatsFlushRunnable)
+        if (statsSessionStart != 0L && statsSessionStationUuid.isNotEmpty()) {
+            val elapsedSeconds: Long = (System.currentTimeMillis() - statsSessionStart) / 1000
+            if (elapsedSeconds > 0) {
+                val listeningStats: MutableMap<String, Long> = PreferencesHelper.loadListeningStats()
+                listeningStats[statsSessionStationUuid] = (listeningStats[statsSessionStationUuid] ?: 0L) + elapsedSeconds
+                PreferencesHelper.saveListeningStats(listeningStats)
+            }
+        }
+        statsSessionStart = 0L
+    }
+
+
+    /*
+     * Runnable: Periodically flushes the listening statistics while playing
+     */
+    private val listeningStatsFlushRunnable: Runnable = object : Runnable {
+        override fun run() {
+            if (player.isPlaying) {
+                flushListeningStatsSession()
+                statsSessionStart = System.currentTimeMillis()
+                handler.postDelayed(this, Keys.LISTENING_STATS_FLUSH_INTERVAL)
+            }
+        }
+    }
+    /*
+     * End of declaration
+     */
 
 
     /* Shows a hint on the first failed connection when local network access is missing (Android 17+) */
@@ -770,6 +820,12 @@ abstract class BasePlayerService: MediaLibraryService() {
             PreferencesHelper.saveCurrentStationId(currentMediaId)
             // reset restart counter
             playbackRestartCounter = 0
+            // listening statistics
+            if (isPlaying) {
+                startListeningStatsSession(currentMediaId)
+            } else {
+                flushListeningStatsSession()
+            }
             // todo check if this can be abstracted / is still necessary - see: CMD_UPDATE_COLLECTION (https://codeberg.org/y20k/transistor/commit/8503b79777e8ca82df3c172fd6af7ec784254c0c)
             // To remove the currently playing station, it is necessary to pause the player controller,
             // which will trigger the onIsPlayingChanged method.
@@ -837,6 +893,15 @@ abstract class BasePlayerService: MediaLibraryService() {
             super.onPlayerError(error)
             Log.d(TAG, "PlayerError occurred: ${error.errorCodeName}")
             // todo: test if playback needs to be restarted
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            super.onMediaItemTransition(mediaItem, reason)
+            // listening statistics: close the session of the previous station and start a new one
+            if (player.isPlaying) {
+                flushListeningStatsSession()
+                startListeningStatsSession(mediaItem?.mediaId ?: String())
+            }
         }
 
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
@@ -921,6 +986,8 @@ abstract class BasePlayerService: MediaLibraryService() {
             intent.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
             intent.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
             sendBroadcast(intent)
+            // attach the in-app equalizer to the new audio session
+            EqualizerManager.attach(audioSessionId)
             // note: remember to broadcast AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION, when not needed anymore
         }
     }

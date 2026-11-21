@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/menu_equalizer"
+        android:title="@string/menu_equalizer" />
+    <item
         android:id="@+id/menu_show_streaming_link"
         android:title="@string/menu_show_streaming_link" />
     <item

@@ -134,6 +134,20 @@
     <string name="notification_channel_playback">Playback</string>
     <string name="notification_action_previous_station">Previous station</string>
     <string name="notification_action_next_station">Next station</string>
+    <!-- Now Playing Sheet Extras -->
+    <string name="descr_card_star_toggle">Star or unstar station</string>
+    <string name="descr_player_sheet_shuffle_button">Play random station</string>
+    <string name="menu_equalizer">Equalizer</string>
+    <string name="dialog_equalizer_title">Equalizer</string>
+    <string name="dialog_equalizer_enabled">Enabled</string>
+    <string name="dialog_equalizer_flat">Flat</string>
+    <string name="toast_equalizer_not_active">Start playback to use the equalizer</string>
+    <!-- Listening Statistics -->
+    <string name="pref_listening_statistics_title">Listening Statistics</string>
+    <string name="pref_listening_statistics_summary">See how long you have listened to each station.</string>
+    <string name="dialog_listening_statistics_total">Total listening time</string>
+    <string name="dialog_listening_statistics_reset">Reset</string>
+    <string name="toast_listening_statistics_reset">Listening statistics cleared</string>
     <!-- Onboarding -->
     <string name="onboarding_app_description">Radio App</string>
     <string name="onboarding_app_get_started">Get started</string>
