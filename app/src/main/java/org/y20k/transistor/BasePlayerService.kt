@@ -23,6 +23,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.media.audiofx.AudioEffect
 import android.os.Build
 import android.os.Bundle
@@ -34,6 +37,9 @@ import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.drawable.IconCompat
+import androidx.core.net.toUri
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -56,11 +62,11 @@ import androidx.media3.exoplayer.upstream.DefaultAllocator
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.session.CommandButton
-import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
@@ -71,10 +77,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.launch
 import org.y20k.transistor.core.Collection
+import org.y20k.transistor.core.Station
 import org.y20k.transistor.helpers.AudioHelper
 import org.y20k.transistor.helpers.CollectionHelper
 import org.y20k.transistor.helpers.FileHelper
 import org.y20k.transistor.helpers.PreferencesHelper
+import org.y20k.transistor.helpers.UiHelper
+import java.io.File
 import java.util.Date
 
 
@@ -120,9 +129,7 @@ abstract class BasePlayerService: MediaLibraryService() {
         // initialize media items
         initializeMediaItems()
         // set up notification provider
-        val notificationProvider: DefaultMediaNotificationProvider = CustomNotificationProvider()
-        notificationProvider.setSmallIcon(R.drawable.ic_notification_app_icon_white_24dp)
-        setMediaNotificationProvider(notificationProvider)
+        setMediaNotificationProvider(CustomMediaNotificationProvider())
     }
 
 
@@ -490,41 +497,135 @@ abstract class BasePlayerService: MediaLibraryService() {
 
 
     /*
-     * NotificationProvider to customize Notification actions
+     * Custom MediaNotification.Provider that renders a colorized playback notification:
+     * station art, now playing metadata and previous/play-stop/next buttons on a
+     * darkened station color background. On Android 13+ the system renders its own
+     * media template from the session metadata and the published media buttons.
      */
-    private inner class CustomNotificationProvider: DefaultMediaNotificationProvider(this@BasePlayerService) {
-        override fun addNotificationActions(
-            mediaSession: MediaSession,
-            mediaButtons: ImmutableList<CommandButton>,
-            builder: NotificationCompat.Builder,
-            actionFactory: MediaNotification.ActionFactory
-        ): IntArray {
-            return super.addNotificationActions(mediaSession, mediaButtons, builder, actionFactory)
+    private inner class CustomMediaNotificationProvider: MediaNotification.Provider {
+
+        /* Returns the notification channel used for the playback notification */
+        override fun getNotificationChannelInfo(): MediaNotification.Provider.NotificationChannelInfo {
+            return MediaNotification.Provider.NotificationChannelInfo(Keys.NOW_PLAYING_NOTIFICATION_CHANNEL_ID, getString(R.string.notification_channel_playback))
         }
 
-        override fun getMediaButtons(session: MediaSession, playerCommands: Player.Commands, customLayout: ImmutableList<CommandButton>, showPauseButton: Boolean): ImmutableList<CommandButton> {
-            val seekToPreviousCommandButton = CommandButton.Builder().apply {
+        /* Creates the playback notification */
+        override fun createNotification(
+            mediaSession: MediaSession,
+            mediaButtonPreferences: ImmutableList<CommandButton>,
+            actionFactory: MediaNotification.ActionFactory,
+            onNotificationChangedCallback: MediaNotification.Provider.Callback
+        ): MediaNotification {
+            val player: Player = mediaSession.player
+            val station: Station? = collection.stations.firstOrNull { it.uuid == player.currentMediaItem?.mediaId }
+            val metadata: String = metadataHistory.lastOrNull() ?: String()
+            val isPlaying: Boolean = player.isPlaying
+
+            // publish the media buttons shown in the system media controls (Android 13+)
+            mediaSession.setMediaButtonPreferences(getMediaButtons(player))
+
+            // build notification
+            val builder: NotificationCompat.Builder = NotificationCompat.Builder(this@BasePlayerService, Keys.NOW_PLAYING_NOTIFICATION_CHANNEL_ID)
+            builder.setSmallIcon(R.drawable.ic_notification_app_icon_white_24dp)
+            builder.setContentTitle(if (metadata.isNotEmpty()) metadata else station?.name ?: String())
+            builder.setContentText(station?.name ?: String())
+            builder.setLargeIcon(loadStationBitmap(station))
+            builder.setContentIntent(mediaSession.sessionActivity)
+            builder.setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            builder.setShowWhen(false)
+            builder.setOnlyAlertOnce(true)
+            builder.setOngoing(isPlaying)
+            if (!isPlaying) {
+                builder.setDeleteIntent(actionFactory.createNotificationDismissalIntent(mediaSession))
+            }
+            builder.setColorized(true)
+            builder.setColor(getNotificationColor(station))
+            builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+
+            // media buttons: previous station, play/stop, next station
+            val previousAction: NotificationCompat.Action = actionFactory.createMediaAction(
+                mediaSession,
+                IconCompat.createWithResource(this@BasePlayerService, R.drawable.ic_notification_skip_to_previous_36dp),
+                getString(R.string.notification_action_previous_station),
+                Player.COMMAND_SEEK_TO_PREVIOUS
+            )
+            val playStopAction: NotificationCompat.Action = actionFactory.createMediaAction(
+                mediaSession,
+                IconCompat.createWithResource(this@BasePlayerService, if (isPlaying) R.drawable.ic_notification_stop_36dp else R.drawable.ic_notification_play_36dp),
+                getString(R.string.descr_player_playback_button),
+                Player.COMMAND_PLAY_PAUSE
+            )
+            val nextAction: NotificationCompat.Action = actionFactory.createMediaAction(
+                mediaSession,
+                IconCompat.createWithResource(this@BasePlayerService, R.drawable.ic_notification_skip_to_next_36dp),
+                getString(R.string.notification_action_next_station),
+                Player.COMMAND_SEEK_TO_NEXT
+            )
+            builder.addAction(previousAction)
+            builder.addAction(playStopAction)
+            builder.addAction(nextAction)
+
+            // MediaStyle shows the three actions in the compact view
+            builder.setStyle(MediaStyleNotificationHelper.MediaStyle(mediaSession).setShowActionsInCompactView(0, 1, 2))
+
+            return MediaNotification(Keys.NOW_PLAYING_NOTIFICATION_ID, builder.build())
+        }
+
+        /* Handles custom commands - none present */
+        override fun handleCustomCommand(session: MediaSession, action: String, extras: Bundle): Boolean {
+            return false
+        }
+
+        /* Builds the media button list published to the system media controls */
+        private fun getMediaButtons(player: Player): ImmutableList<CommandButton> {
+            val previousStationButton = CommandButton.Builder().apply {
+                setDisplayName(getString(R.string.notification_action_previous_station))
                 setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
                 setIconResId(R.drawable.ic_notification_skip_to_previous_36dp)
                 setEnabled(true)
             }.build()
-            val playCommandButton = CommandButton.Builder().apply {
+            val playStopButton = CommandButton.Builder().apply {
+                setDisplayName(getString(R.string.descr_player_playback_button))
                 setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
                 setIconResId(if (player.isPlaying) R.drawable.ic_notification_stop_36dp else R.drawable.ic_notification_play_36dp)
                 setEnabled(true)
             }.build()
-            val seekToNextCommandButton = CommandButton.Builder().apply {
+            val nextStationButton = CommandButton.Builder().apply {
+                setDisplayName(getString(R.string.notification_action_next_station))
                 setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
                 setIconResId(R.drawable.ic_notification_skip_to_next_36dp)
                 setEnabled(true)
             }.build()
-            val commandButtons: MutableList<CommandButton> = mutableListOf(
-                seekToPreviousCommandButton,
-                playCommandButton,
-                seekToNextCommandButton
-            )
-            return ImmutableList.copyOf(commandButtons)
+            return ImmutableList.of(previousStationButton, playStopButton, nextStationButton)
         }
+
+        /* Loads the station image as bitmap - falls back to the default station image */
+        private fun loadStationBitmap(station: Station?): Bitmap? {
+            if (station != null) {
+                try {
+                    val imageFile: File = File(station.image.toUri().path ?: "")
+                    if (imageFile.exists()) {
+                        return BitmapFactory.decodeFile(imageFile.absolutePath)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Unable to load station image for notification")
+                }
+            }
+            val defaultImage: ByteArray = UiHelper.getDefaultStationImageAsByteArray(this@BasePlayerService)
+            return BitmapFactory.decodeByteArray(defaultImage, 0, defaultImage.size)
+        }
+
+        /* Returns a darkened version of the station color used as notification background */
+        private fun getNotificationColor(station: Station?): Int {
+            val imageColor: Int = station?.imageColor ?: -1
+            return if (imageColor != -1) {
+                ColorUtils.blendARGB(imageColor, Color.BLACK, 0.55f)
+            } else {
+                0xFF1C1B1F.toInt()
+            }
+        }
+
     }
     /*
      * End of inner class
