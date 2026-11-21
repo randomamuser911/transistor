@@ -15,6 +15,8 @@
 package org.y20k.transistor
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.TaskStackBuilder
 import android.content.BroadcastReceiver
@@ -559,6 +561,22 @@ abstract class BasePlayerService: MediaLibraryService() {
             return MediaNotification.Provider.NotificationChannelInfo(Keys.NOW_PLAYING_NOTIFICATION_CHANNEL_ID, getString(R.string.notification_channel_playback))
         }
 
+        /* Creates the playback notification channel if it does not exist yet - the system rejects startForeground notifications posted on unknown channels */
+        private fun ensureNotificationChannel() {
+            if (Build.VERSION.SDK_INT >= 26) {
+                val notificationManager: NotificationManager = getSystemService(NotificationManager::class.java)
+                if (notificationManager.getNotificationChannel(Keys.NOW_PLAYING_NOTIFICATION_CHANNEL_ID) == null) {
+                    val channel: NotificationChannel = NotificationChannel(
+                        Keys.NOW_PLAYING_NOTIFICATION_CHANNEL_ID,
+                        getString(R.string.notification_channel_playback),
+                        NotificationManager.IMPORTANCE_LOW
+                    )
+                    channel.setShowBadge(false)
+                    notificationManager.createNotificationChannel(channel)
+                }
+            }
+        }
+
         /* Creates the playback notification */
         override fun createNotification(
             mediaSession: MediaSession,
@@ -570,6 +588,9 @@ abstract class BasePlayerService: MediaLibraryService() {
             val station: Station? = collection.stations.firstOrNull { it.uuid == player.currentMediaItem?.mediaId }
             val metadata: String = metadataHistory.lastOrNull() ?: String()
             val isPlaying: Boolean = player.isPlaying
+
+            // the channel must exist before the notification goes to startForeground
+            ensureNotificationChannel()
 
             // publish the media buttons shown in the system media controls (Android 13+)
             mediaSession.setMediaButtonPreferences(getMediaButtons(player))
