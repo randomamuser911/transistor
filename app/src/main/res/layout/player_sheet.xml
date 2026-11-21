@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/player_sheet_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurfaceContainerLow"
+    android:clickable="true"
+    android:focusable="true"
+    android:visibility="gone"
+    tools:visibility="visible">
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/player_sheet_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/player_sheet_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp">
+
+            <ImageButton
+                android:id="@+id/player_sheet_collapse_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="-12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/descr_player_sheet_collapse_button"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:srcCompat="@drawable/ic_player_extended_chevron_down_24dp"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <ImageButton
+                android:id="@+id/player_sheet_more_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="-12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/descr_player_sheet_more_button"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:srcCompat="@drawable/ic_more_vert_24dp"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/player_sheet_station_image"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_marginTop="8dp"
+                android:background="?attr/colorSurfaceContainerHighest"
+                android:contentDescription="@string/descr_player_station_image"
+                android:scaleType="centerCrop"
+                app:layout_constraintDimensionRatio="1:1"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/player_sheet_collapse_button"
+                app:shapeAppearanceOverlay="@style/Shape.RoundedSquare20"
+                app:srcCompat="@drawable/ic_default_station_image_64dp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/player_sheet_station_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:ellipsize="end"
+                android:letterSpacing="0"
+                android:maxLines="2"
+                android:textAlignment="viewStart"
+                android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
+                android:textColor="?attr/colorOnSurface"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/player_sheet_station_image"
+                tools:text="@string/sample_text_station_name" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/player_sheet_station_metadata"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:ellipsize="marquee"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:marqueeRepeatLimit="marquee_forever"
+                android:singleLine="true"
+                android:textAlignment="viewStart"
+                android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/player_sheet_station_name"
+                tools:text="@string/sample_text_station_metadata" />
+
+            <ImageButton
+                android:id="@+id/sleep_timer_start_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="24dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/descr_expanded_player_sleep_timer_start_button"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/player_sheet_station_metadata"
+                app:srcCompat="@drawable/ic_player_extended_sleep_timer_24dp"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <ImageButton
+                android:id="@+id/player_extended_copy_station_metadata_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="24dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/descr_expanded_player_metadata_copy_button"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/player_sheet_station_metadata"
+                app:srcCompat="@drawable/ic_player_extended_copy_content_24dp"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <FrameLayout
+                android:id="@+id/player_sheet_play_container"
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:layout_marginTop="12dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/player_sheet_station_metadata">
+
+                <ImageButton
+                    android:id="@+id/player_sheet_play_button"
+                    android:layout_width="84dp"
+                    android:layout_height="84dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/shape_circle"
+                    android:backgroundTint="?attr/colorPrimary"
+                    android:contentDescription="@string/descr_player_playback_button"
+                    android:scaleType="center"
+                    app:srcCompat="@drawable/ic_player_play_symbol_48dp"
+                    app:tint="?attr/colorOnPrimary"
+                    tools:srcCompat="@drawable/ic_player_play_symbol_48dp" />
+
+                <ProgressBar
+                    android:id="@+id/player_sheet_buffering_indicator"
+                    style="?android:attr/progressBarStyle"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center"
+                    android:indeterminateTint="?attr/colorPrimary"
+                    android:indeterminateTintMode="src_in"
+                    android:visibility="invisible"
+                    tools:visibility="invisible" />
+
+            </FrameLayout>
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/sleep_timer_remaining_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginEnd="8dp"
+                android:contentDescription="@string/descr_expanded_player_sleep_timer_remaining_time"
+                android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+                android:textColor="?attr/colorPrimary"
+                app:layout_constraintEnd_toStartOf="@+id/sleep_timer_cancel_button"
+                app:layout_constraintTop_toBottomOf="@+id/player_sheet_play_container"
+                tools:text="@string/sample_text_sleep_timer_remaining_time" />
+
+            <ImageButton
+                android:id="@+id/sleep_timer_cancel_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/descr_expanded_player_sleep_timer_cancel_button"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/player_sheet_play_container"
+                app:srcCompat="@drawable/ic_player_extended_clear_24dp"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <ImageView
+                android:id="@+id/player_sheet_volume_down_icon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginTop="32dp"
+                android:contentDescription="@string/descr_player_sheet_volume_slider"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/player_sheet_play_container"
+                app:srcCompat="@drawable/ic_volume_off_24dp"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/player_sheet_volume_slider"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
+                android:contentDescription="@string/descr_player_sheet_volume_slider"
+                android:valueFrom="0"
+                android:valueTo="100"
+                app:labelBehavior="gone"
+                app:layout_constraintBottom_toBottomOf="@+id/player_sheet_volume_down_icon"
+                app:layout_constraintEnd_toStartOf="@+id/player_sheet_volume_up_icon"
+                app:layout_constraintStart_toEndOf="@+id/player_sheet_volume_down_icon"
+                app:layout_constraintTop_toTopOf="@+id/player_sheet_volume_down_icon"
+                app:thumbColor="?attr/colorPrimary"
+                app:tickVisible="false"
+                app:trackColorActive="?attr/colorPrimary"
+                app:trackColorInactive="?attr/colorSurfaceContainerHighest"
+                app:trackHeight="4dp" />
+
+            <ImageView
+                android:id="@+id/player_sheet_volume_up_icon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/descr_player_sheet_volume_slider"
+                app:layout_constraintBottom_toBottomOf="@+id/player_sheet_volume_down_icon"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/player_sheet_volume_down_icon"
+                app:srcCompat="@drawable/ic_volume_up_24dp"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <ImageButton
+                android:id="@+id/player_extended_previous_metadata_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="-12dp"
+                android:layout_marginTop="20dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/descr_expanded_player_metadata_previous_button"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/player_sheet_volume_down_icon"
+                app:srcCompat="@drawable/ic_player_extended_chevron_left_24dp"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/player_extended_metadata_history"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:ellipsize="marquee"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:gravity="center"
+                android:marqueeRepeatLimit="marquee_forever"
+                android:singleLine="true"
+                android:textAlignment="center"
+                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                app:layout_constraintBottom_toBottomOf="@+id/player_extended_previous_metadata_button"
+                app:layout_constraintEnd_toStartOf="@+id/player_extended_next_metadata_button"
+                app:layout_constraintStart_toEndOf="@+id/player_extended_previous_metadata_button"
+                app:layout_constraintTop_toTopOf="@+id/player_extended_previous_metadata_button"
+                tools:text="@string/sample_text_station_metadata" />
+
+            <ImageButton
+                android:id="@+id/player_extended_next_metadata_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="-12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/descr_expanded_player_metadata_next_button"
+                app:layout_constraintBottom_toBottomOf="@+id/player_extended_previous_metadata_button"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/player_extended_previous_metadata_button"
+                app:srcCompat="@drawable/ic_player_extended_chevron_right_24dp"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <!-- hidden holder for the streaming link, read by the 3-dot menu -->
+            <TextView
+                android:id="@+id/player_extended_streaming_link"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:visibility="gone"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/player_extended_previous_metadata_button"
+                tools:text="@string/sample_text_steam_url" />
+
+            <androidx.constraintlayout.widget.Group
+                android:id="@+id/sleep_timer_running_views"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:visibility="gone"
+                app:constraint_referenced_ids="sleep_timer_remaining_time,sleep_timer_cancel_button"
+                tools:visibility="gone" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+</FrameLayout>

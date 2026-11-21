@@ -108,7 +108,7 @@ abstract class BaseMainActivity : AppCompatActivity(), SharedPreferences.OnShare
         // custom back press handling
         val onBackPressedCallback = object : OnBackPressedCallback(true /* enabled by default */) {
             override fun handleOnBackPressed() {
-                if (!layout.hidePlayerExtendedViewsIfVisible()) {
+                if (!layout.hidePlayerSheetIfVisible()) {
                     isEnabled = false
                     onBackPressedDispatcher.onBackPressed()
                 }
@@ -235,8 +235,13 @@ abstract class BaseMainActivity : AppCompatActivity(), SharedPreferences.OnShare
 
     /* Sets up the general playback controls */
     private fun setupPlaybackControls() {
-        // main play/pause button
+        // main play/pause button - mini player
         layout.playButtonView.setOnClickListener {
+            onPlayButtonTapped(playerState.stationPosition)
+        }
+
+        // main play/pause button - now playing sheet
+        layout.playerSheetPlayButton.setOnClickListener {
             onPlayButtonTapped(playerState.stationPosition)
         }
 

@@ -250,7 +250,7 @@ class MainFragment: Fragment(),
     /* Overrides onStationCardTapped from CollectionAdapterListener */
     override fun onStationCardTapped() {
         val mainActivity = activity as? BaseMainActivity
-        mainActivity?.layout?.hidePlayerExtendedViewsIfVisible()
+        mainActivity?.layout?.hidePlayerSheetIfVisible()
     }
 
 

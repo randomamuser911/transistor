@@ -123,6 +123,14 @@
     <string name="descr_expanded_player_sleep_timer_start_button">Start sleep timer</string>
     <string name="descr_player_station_image">Station image</string>
     <string name="descr_player_playback_button">Play/pause</string>
+    <string name="descr_player_mini_player">Open now playing view</string>
+    <string name="descr_player_sheet_collapse_button">Close now playing view</string>
+    <string name="descr_player_sheet_more_button">More options</string>
+    <string name="descr_player_sheet_volume_slider">Volume</string>
+    <!-- Now Playing Menu -->
+    <string name="menu_show_streaming_link">Show streaming link</string>
+    <string name="menu_copy_streaming_link">Copy streaming link</string>
+    <string name="menu_share_streaming_link">Share streaming link</string>
     <!-- Onboarding -->
     <string name="onboarding_app_description">Radio App</string>
     <string name="onboarding_app_get_started">Get started</string>

@@ -75,6 +75,12 @@
         <item name="cornerSize">14dp</item>
     </style>
 
+    <!-- rounded square for large now playing art -->
+    <style name="Shape.RoundedSquare20" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
+    </style>
+
     <!-- Override the default layout for PreferenceFragmentCompat -->
     <style name="AppPreferenceFragmentCompatStyle" parent="@style/PreferenceFragment.Material">
         <item name="android:layout">@layout/fragment_settings</item>
