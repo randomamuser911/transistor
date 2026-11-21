@@ -47,6 +47,7 @@ import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.core.view.isVisible
 import org.y20k.transistor.collection.CollectionAdapter
 import org.y20k.transistor.collection.CollectionViewModel
 import org.y20k.transistor.core.Collection
@@ -60,6 +61,7 @@ import org.y20k.transistor.helpers.DownloadHelper
 import org.y20k.transistor.helpers.FileHelper
 import org.y20k.transistor.helpers.NetworkHelper
 import org.y20k.transistor.helpers.PreferencesHelper
+import com.google.android.material.tabs.TabLayout
 import org.y20k.transistor.helpers.UiHelper
 import org.y20k.transistor.helpers.UpdateHelper
 import org.y20k.transistor.ui.MainFragmentLayoutHolder
@@ -301,7 +303,7 @@ class MainFragment: Fragment(),
         val swipeToDeleteHandler = object : UiHelper.SwipeToDeleteCallback(requireContext()) {
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 // ask user and delete station if confirmed
-                collectionAdapter.showDeleteStationDialog(this@MainFragment as YesNoDialog.YesNoDialogListener, viewHolder.adapterPosition)
+                collectionAdapter.showDeleteStationDialog(this@MainFragment as YesNoDialog.YesNoDialogListener, collectionAdapter.getOriginalPosition(viewHolder.adapterPosition))
             }
         }
         val swipeToDeleteItemTouchHelper = ItemTouchHelper(swipeToDeleteHandler)
@@ -312,12 +314,48 @@ class MainFragment: Fragment(),
             object : UiHelper.SwipeToMarkStarredCallback(requireContext()) {
                 override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                     // mark card starred
-                    val adapterPosition: Int = viewHolder.adapterPosition
+                    val adapterPosition: Int = collectionAdapter.getOriginalPosition(viewHolder.adapterPosition)
                     collectionAdapter.toggleStarredStation(requireContext(), adapterPosition)
                 }
             }
         val swipeToMarkStarredItemTouchHelper = ItemTouchHelper(swipeToMarkStarredHandler)
         swipeToMarkStarredItemTouchHelper.attachToRecyclerView(layout.recyclerView)
+
+        // set up the station list tabs (stations / favorites)
+        initializeTabs()
+    }
+
+
+    /* Sets up the tabs that switch between all stations and favorites */
+    private fun initializeTabs() {
+        // tab selection switches the list filter
+        layout.stationTabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab) {
+                val favoritesTabSelected: Boolean = tab.position == 1
+                PreferencesHelper.saveStationListTabFavorites(favoritesTabSelected)
+                collectionAdapter.setFavoritesOnly(favoritesTabSelected)
+                updateFavoritesEmptyState()
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab) { }
+            override fun onTabReselected(tab: TabLayout.Tab) { }
+        })
+        // the browse button in the empty state switches back to all stations
+        layout.favoritesEmptyBrowseButton.setOnClickListener {
+            layout.stationTabs.getTabAt(0)?.select()
+        }
+        // restore last selected tab
+        if (PreferencesHelper.loadStationListTabFavorites()) {
+            layout.stationTabs.getTabAt(1)?.select()
+        }
+    }
+
+
+    /* Toggles the favorites empty state and hides the tabs when there are no stations at all */
+    fun updateFavoritesEmptyState() {
+        if (!this::layout.isInitialized) return
+        val favoritesCount: Int = collection.stations.count { it.starred }
+        layout.stationTabs.isVisible = collection.stations.isNotEmpty()
+        layout.favoritesEmptyLayout.isVisible = collectionAdapter.isFavoritesOnly() && favoritesCount == 0 && collection.stations.isNotEmpty()
     }
 
 
@@ -440,6 +478,7 @@ class MainFragment: Fragment(),
                 
                 // toggle the onboarding view if necessary and export the collection
                 layout.toggleOnboarding(collection.stations.size)
+                updateFavoritesEmptyState()
                 if (collection.stations.size > 0) {
                     CoroutineScope(IO).launch {
                         FileHelper.backupCollectionAsM3u(requireContext(), collection)

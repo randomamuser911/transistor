@@ -1,15 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/player_fragment"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
 
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/station_tabs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorSurface"
+        app:tabInlineLabel="true"
+        app:tabMode="fixed"
+        app:tabGravity="fill"
+        app:tabRippleColor="?attr/colorControlHighlight">
+
+        <com.google.android.material.tabs.TabItem
+            android:id="@+id/station_tab_stations"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/tab_station_list" />
+
+        <com.google.android.material.tabs.TabItem
+            android:id="@+id/station_tab_favorites"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:icon="@drawable/ic_star_default_24dp"
+            android:text="@string/tab_station_favorites" />
+
+    </com.google.android.material.tabs.TabLayout>
+
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:orientation="vertical"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:background="?attr/colorSurface"
         tools:context="org.y20k.transistor.MainFragment">
 
@@ -29,8 +56,11 @@
             layout="@layout/element_onboarding"
             android:visibility="gone" />
 
+        <!-- FAVORITES EMPTY STATE -->
+        <include
+            layout="@layout/element_favorites_empty"
+            android:visibility="gone" />
+
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
 </LinearLayout>
-
-

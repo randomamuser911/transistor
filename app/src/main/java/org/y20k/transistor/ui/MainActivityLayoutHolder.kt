@@ -682,24 +682,16 @@ data class MainActivityLayoutHolder (var rootView: View) : MainFragmentLayoutHol
     private fun setupPlayerSheetGestures() {
         val gestureFrameLayout: PlayerSheetGestureFrameLayout = playerSheetView as? PlayerSheetGestureFrameLayout ?: return
         gestureFrameLayout.gestureListener = object : PlayerSheetGestureFrameLayout.GestureListener {
-            override fun onSheetDrag(dy: Float) {
-                // sheet follows the finger - never above its resting position
-                playerSheetView.translationY = dy.coerceAtLeast(0f)
+            override fun onSheetDrag(sheetOffsetY: Float) {
+                // sheet follows the finger
+                playerSheetView.translationY = sheetOffsetY
             }
 
             override fun onSheetDragEnded(shouldClose: Boolean) {
-                when {
-                    shouldClose -> {
-                        hidePlayerSheet()
-                    }
-                    playerSheetView.translationY > 0f -> {
-                        // spring back into place
-                        playerSheetView.animate()
-                            .translationY(0f)
-                            .setDuration(PLAYER_SHEET_ANIMATION_DURATION)
-                            .start()
-                    }
+                if (shouldClose) {
+                    hidePlayerSheet()
                 }
+                // springing back into place is handled by the gesture view itself
             }
 
             override fun onSwipeToNextStation() {

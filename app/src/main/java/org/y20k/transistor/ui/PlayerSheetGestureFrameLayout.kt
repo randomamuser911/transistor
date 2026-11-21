@@ -2,8 +2,10 @@
  * PlayerSheetGestureFrameLayout.kt
  * Implements the PlayerSheetGestureFrameLayout class
  * A FrameLayout that adds swipe gestures to the now playing sheet:
- * drag or fling down closes the sheet, horizontal flings switch stations.
- * Touches that start on interactive controls (sliders, buttons) are never intercepted.
+ * dragging or flinging down closes the sheet, horizontal flings switch stations.
+ * Vertical drags are handled through the nested scrolling protocol: the inner
+ * scroll view scrolls its content until it reaches the top, then hands the
+ * unconsumed movement to this view, which moves the sheet with the finger.
  *
  * This file is part of
  * TRANSISTOR - Radio App for Android
@@ -16,30 +18,27 @@
 
 package org.y20k.transistor.ui
 
+import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.Rect
 import android.util.AttributeSet
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
-import android.view.ViewConfiguration
+import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
-import android.widget.ScrollView
+import androidx.core.view.NestedScrollingParent3
 import androidx.core.view.ViewCompat
-import androidx.core.widget.NestedScrollView
-import com.google.android.material.slider.Slider
-import org.y20k.transistor.R
+import androidx.core.view.ViewCompat.TYPE_TOUCH
 
 
 /*
  * PlayerSheetGestureFrameLayout class
  */
-class PlayerSheetGestureFrameLayout @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0): FrameLayout(context, attrs, defStyleAttr) {
+class PlayerSheetGestureFrameLayout @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0): FrameLayout(context, attrs, defStyleAttr), NestedScrollingParent3 {
 
     /* Listener Interface */
     interface GestureListener {
-        fun onSheetDrag(dy: Float)
+        fun onSheetDrag(sheetOffsetY: Float)
         fun onSheetDragEnded(shouldClose: Boolean)
         fun onSwipeToNextStation()
         fun onSwipeToPreviousStation()
@@ -47,143 +46,143 @@ class PlayerSheetGestureFrameLayout @JvmOverloads constructor(context: Context, 
 
     /* Main class variables */
     var gestureListener: GestureListener? = null
-    private var touchSlop: Int = ViewConfiguration.get(context).scaledTouchSlop
-    private var downX: Float = 0f
-    private var downY: Float = 0f
-    private var draggingSheet: Boolean = false
-    private var gestureIgnored: Boolean = false
-    private var horizontalSwipe: Boolean = false
-    private var verticalDrag: Boolean = false
+    private var sheetOffsetY: Float = 0f
+    private var settleAnimator: ValueAnimator? = null
+    private var horizontalSwipeDetected: Boolean = false
 
-    /* Detects flings */
+    /* Velocity threshold below which a release counts as a drag, not a fling */
+    private val closeFlingVelocity: Float = 1000f
+
+
+    /* Detects horizontal flings that switch stations - fed from dispatchTouchEvent so it sees the full gesture even while the scroll view consumes the drags */
     private val flingDetector: GestureDetector by lazy {
         GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
-                if (gestureIgnored || draggingSheet || verticalDrag) return false
-                val listener: GestureListener = gestureListener ?: return false
-                // horizontal fling switches stations
-                if (kotlin.math.abs(velocityX) > 2500f && kotlin.math.abs(velocityX) > kotlin.math.abs(velocityY)) {
-                    if (velocityX < 0f) listener.onSwipeToNextStation() else listener.onSwipeToPreviousStation()
+                if (horizontalSwipeDetected && sheetOffsetY == 0f && kotlin.math.abs(velocityX) > kotlin.math.abs(velocityY) && kotlin.math.abs(velocityX) > 2500f) {
+                    if (velocityX < 0f) gestureListener?.onSwipeToNextStation() else gestureListener?.onSwipeToPreviousStation()
                     return true
                 }
-                // downward fling closes the sheet
-                if (velocityY > 2500f && kotlin.math.abs(velocityY) > kotlin.math.abs(velocityX)) {
-                    listener.onSheetDragEnded(shouldClose = true)
-                    return true
-                }
+                return false
+            }
+
+            override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+                // remember gestures that clearly move sideways - they are meant to switch stations
+                horizontalSwipeDetected = kotlin.math.abs(e2.x - (e1?.x ?: e2.x)) > kotlin.math.abs(e2.y - (e1?.y ?: e2.y)) + 48f
                 return false
             }
         })
     }
 
 
-    /* Overrides onInterceptTouchEvent - steals drags that are meant for the sheet, passes on everything else */
-    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-        flingDetector.onTouchEvent(ev)
+    /* Overrides dispatchTouchEvent - feeds the fling detector with the complete touch stream */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                downX = ev.x
-                downY = ev.y
-                draggingSheet = false
-                horizontalSwipe = false
-                verticalDrag = false
-                gestureIgnored = isTouchOnInteractiveView(ev.x, ev.y)
+                horizontalSwipeDetected = false
+                settleAnimator?.cancel()
             }
-            MotionEvent.ACTION_MOVE -> {
-                if (gestureIgnored || draggingSheet) return draggingSheet
-                val dx: Float = ev.x - downX
-                val dy: Float = ev.y - downY
-                // decide whether this gesture belongs to the sheet once the finger has moved past the touch slop
-                if (kotlin.math.abs(dx) > touchSlop || kotlin.math.abs(dy) > touchSlop) {
-                    if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
-                        // horizontal swipe: let the fling detector handle it later - do not intercept
-                        horizontalSwipe = true
-                    } else if (dy > 0 && isContentAtTop()) {
-                        // downward drag: sheet follows the finger
-                        verticalDrag = true
-                        draggingSheet = true
-                        parent.requestDisallowInterceptTouchEvent(true)
-                        return true
-                    } else {
-                        // upward drag: let the scroll view handle it
-                        gestureIgnored = true
-                    }
-                }
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (draggingSheet) {
-                    draggingSheet = false
-                    gestureListener?.onSheetDragEnded(shouldClose = false)
-                }
-            }
+        }
+        flingDetector.onTouchEvent(ev)
+        return super.dispatchTouchEvent(ev)
+    }
+
+
+    /* Overrides onStartNestedScroll from NestedScrollingParent3 - accepts vertical touch scrolls of the inner scroll view */
+    override fun onStartNestedScroll(child: View, target: View, axes: Int, type: Int): Boolean {
+        return axes and ViewCompat.SCROLL_AXIS_VERTICAL != 0 && type == TYPE_TOUCH
+    }
+
+
+    /* Overrides onNestedScrollAccepted from NestedScrollingParent3 */
+    override fun onNestedScrollAccepted(child: View, target: View, axes: Int, type: Int) {
+        settleAnimator?.cancel()
+    }
+
+
+    /* Overrides onStopNestedScroll from NestedScrollingParent3 - settles the sheet after the finger lifts */
+    override fun onStopNestedScroll(target: View, type: Int) {
+        if (sheetOffsetY > 0f && settleAnimator == null) {
+            settleSheet()
+        }
+    }
+
+
+    /* Overrides onNestedScroll from NestedScrollingParent3 (part of the interface) */
+    override fun onNestedScroll(target: View, dxConsumed: Int, dyConsumed: Int, dxUnconsumed: Int, dyUnconsumed: Int, type: Int, consumed: IntArray) {
+        // scrolling already handled in onNestedPreScroll
+    }
+
+
+    /* Overrides onNestedScroll from NestedScrollingParent2 */
+    override fun onNestedScroll(target: View, dxConsumed: Int, dyConsumed: Int, dxUnconsumed: Int, dyUnconsumed: Int, type: Int) {
+        // scrolling already handled in onNestedPreScroll
+    }
+
+
+    /* Overrides onNestedPreScroll from NestedScrollingParent3 - moves the sheet once the content is scrolled to the top */
+    override fun onNestedPreScroll(target: View, dx: Int, dy: Int, consumed: IntArray, type: Int) {
+        if (dy < 0 && !target.canScrollVertically(-1)) {
+            // finger pulls down, content is at the top - the sheet follows the finger
+            consumed[1] = dy
+            sheetOffsetY = (sheetOffsetY - dy).coerceAtLeast(0f)
+            gestureListener?.onSheetDrag(sheetOffsetY)
+        } else if (sheetOffsetY > 0f && dy > 0) {
+            // sheet is moved and the finger travels back up - return it to its resting place
+            val giveBack: Int = dy.coerceAtMost(sheetOffsetY.toInt())
+            consumed[1] = giveBack
+            sheetOffsetY -= giveBack
+            gestureListener?.onSheetDrag(sheetOffsetY)
+        }
+        // finger moves up while the sheet rests - let the content scroll
+    }
+
+
+    /* Overrides onNestedPreFling from NestedScrollingParent3 - closes the sheet on downward flings */
+    override fun onNestedPreFling(target: View, velocityX: Float, velocityY: Float): Boolean {
+        if (sheetOffsetY > 0f) {
+            settleSheet(velocityY)
+            return true
         }
         return false
     }
 
 
-    /* Overrides onTouchEvent - receives the events of a stolen drag */
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (!draggingSheet) return flingDetector.onTouchEvent(event)
-        when (event.actionMasked) {
-            MotionEvent.ACTION_MOVE -> {
-                gestureListener?.onSheetDrag(event.y - downY)
-                return true
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                draggingSheet = false
-                val totalDrag: Float = event.y - downY
-                gestureListener?.onSheetDragEnded(shouldClose = totalDrag > height / 4)
-                performClick()
-                return true
-            }
+    /* Settles the sheet - closes it when far enough down or fast enough, springs back otherwise */
+    private fun settleSheet(releaseVelocityY: Float = 0f) {
+        val shouldClose: Boolean = sheetOffsetY > height / 6f || releaseVelocityY > closeFlingVelocity
+        if (shouldClose) {
+            gestureListener?.onSheetDragEnded(shouldClose = true)
+            sheetOffsetY = 0f
+        } else {
+            animateSheetTo(0f)
         }
-        return true
     }
 
 
-    /* Overrides performClick for accessibility */
-    override fun performClick(): Boolean {
-        return super.performClick()
-    }
-
-
-    /* Checks whether the given point lies on a view that should receive the touch itself */
-    private fun isTouchOnInteractiveView(x: Float, y: Float): Boolean {
-        var interactive: Boolean = false
-        traverseChildren(this) { child ->
-            if (child.isClickable || child is Slider || child is android.widget.Button || (child is android.widget.TextView && ViewCompat.hasOnClickListeners(child))) {
-                val hitRect: Rect = Rect()
-                child.getHitRect(hitRect)
-                if (hitRect.contains(x.toInt(), y.toInt())) {
-                    interactive = true
-                    return@traverseChildren
+    /* Animates the sheet back to the given offset */
+    private fun animateSheetTo(targetOffsetY: Float) {
+        settleAnimator?.cancel()
+        val animator: ValueAnimator = ValueAnimator.ofFloat(sheetOffsetY, targetOffsetY)
+        animator.duration = 250L
+        animator.interpolator = DecelerateInterpolator()
+        animator.addUpdateListener { animation ->
+            sheetOffsetY = animation.animatedValue as Float
+            gestureListener?.onSheetDrag(sheetOffsetY)
+        }
+        animator.addListener(object : android.animation.Animator.AnimatorListener {
+            override fun onAnimationStart(animation: android.animation.Animator) { }
+            override fun onAnimationEnd(animation: android.animation.Animator) {
+                settleAnimator = null
+                if (sheetOffsetY < 1f) {
+                    sheetOffsetY = 0f
+                    gestureListener?.onSheetDrag(0f)
                 }
             }
-        }
-        return interactive
-    }
-
-
-    /* Walks a view tree and calls visitor on every descendant */
-    private fun traverseChildren(view: View, visitor: (View) -> Unit) {
-        if (view is ViewGroup) {
-            for (index: Int in 0 until view.childCount) {
-                val child: View = view.getChildAt(index)
-                visitor(child)
-                traverseChildren(child, visitor)
-            }
-        }
-    }
-
-
-    /* Checks whether the sheet's scrollable content is scrolled to the top */
-    private fun isContentAtTop(): Boolean {
-        val scrollView: View? = findViewById(R.id.player_sheet_scroll)
-        return when (scrollView) {
-            is NestedScrollView -> scrollView.scrollY == 0
-            is ScrollView -> scrollView.scrollY == 0
-            else -> true
-        }
+            override fun onAnimationCancel(animation: android.animation.Animator) { }
+            override fun onAnimationRepeat(animation: android.animation.Animator) { }
+        })
+        settleAnimator = animator
+        animator.start()
     }
 
 }

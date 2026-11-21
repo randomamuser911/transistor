@@ -82,6 +82,8 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
     private var editStationStreamsEnabled: Boolean = PreferencesHelper.loadEditStreamUrisEnabled()
     private var expandedStationUuid: String = PreferencesHelper.loadStationListStreamUuid()
     private var expandedStationPosition: Int = -1
+    private var favoritesOnly: Boolean = false
+    private var displayIndices: MutableList<Int> = mutableListOf()
 
 
     /* Listener Interface */
@@ -90,6 +92,52 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
         fun onAddNewButtonTapped()
         fun onChangeImageButtonTapped(stationUuid: String)
         fun onStationCardTapped()
+    }
+
+
+    /* Toggles between all stations and favorites only - returns the number of displayed stations */
+    fun setFavoritesOnly(enabled: Boolean): Int {
+        favoritesOnly = enabled
+        expandedStationPosition = -1
+        expandedStationUuid = String()
+        rebuildDisplayIndices()
+        notifyDataSetChanged()
+        return displayIndices.size
+    }
+
+
+    /* Tells whether the favorites filter is active */
+    fun isFavoritesOnly(): Boolean {
+        return favoritesOnly
+    }
+
+
+    /* Rebuilds the list of collection indices that are currently displayed */
+    private fun rebuildDisplayIndices() {
+        displayIndices.clear()
+        collection.stations.forEachIndexed { index, station ->
+            if (!favoritesOnly || station.starred) {
+                displayIndices.add(index)
+            }
+        }
+    }
+
+
+    /* Returns the station displayed at the given adapter position */
+    private fun stationForPosition(position: Int): Station {
+        return collection.stations[displayIndices[position]]
+    }
+
+
+    /* Translates an adapter position into a position within the full collection */
+    private fun originalPosition(displayPosition: Int): Int {
+        return if (displayPosition in displayIndices.indices) displayIndices[displayPosition] else displayPosition
+    }
+
+
+    /* Translates an adapter position into a position within the full collection - public for touch helpers */
+    fun getOriginalPosition(displayPosition: Int): Int {
+        return originalPosition(displayPosition)
     }
 
 
@@ -150,7 +198,7 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
             // CASE STATION CARD
             is StationViewHolder -> {
                 // get station from position
-                val station: Station = collection.stations[position]
+                val station: Station = stationForPosition(position)
 
                 // get reference to StationViewHolder
                 val stationViewHolder: StationViewHolder = holder
@@ -162,9 +210,9 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
                 setEditViews(stationViewHolder, station)
 
                 // show / hide edit views
-                when (expandedStationPosition) {
+                when {
                     // show edit views
-                    position -> {
+                    expandedStationUuid.isNotEmpty() && station.uuid == expandedStationUuid -> {
                         stationViewHolder.stationNameView.isVisible = false
                         stationViewHolder.playButtonView.isGone = true
                         stationViewHolder.starredToggleView.isGone = true
@@ -193,6 +241,12 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
 
     /* Overrides onStationUpdated from UpdateHelperListener */
     override fun onStationUpdated(collection: Collection, positionPriorUpdate: Int, positionAfterUpdate: Int) {
+        if (favoritesOnly) {
+            // the filter changes positions - redraw the whole list
+            rebuildDisplayIndices()
+            notifyDataSetChanged()
+            return
+        }
         // check if position has changed after update and move stations around if necessary
         if (positionPriorUpdate != positionAfterUpdate && positionPriorUpdate != -1 && positionAfterUpdate != -1) {
             notifyItemMoved(positionPriorUpdate, positionAfterUpdate)
@@ -229,7 +283,7 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
             val position: Int = stationViewHolder.adapterPosition
             toggleEditViews(position, station.uuid)
             val streamContent: String = stationViewHolder.saveButton.getTag(R.id.station_stream_content_type) as? String ?: station.streamContent
-            saveStation(station, position, stationViewHolder.stationNameEditView.text.toString(), stationViewHolder.stationUriEditView.text.toString(), streamContent = streamContent)
+            saveStation(station, originalPosition(position), stationViewHolder.stationNameEditView.text.toString(), stationViewHolder.stationUriEditView.text.toString(), streamContent = streamContent)
             UiHelper.hideSoftKeyboard(context, stationViewHolder.stationNameEditView)
         }
         stationViewHolder.placeOnHomeScreenButton.setOnClickListener {
@@ -241,7 +295,6 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
         stationViewHolder.stationImageChangeView.setOnClickListener {
             val position: Int = stationViewHolder.adapterPosition
             collectionAdapterListener.onChangeImageButtonTapped(station.uuid)
-            stationViewHolder.adapterPosition
             toggleEditViews(position, station.uuid)
             UiHelper.hideSoftKeyboard(context, stationViewHolder.stationNameEditView)
         }
@@ -314,10 +367,10 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
             }
         }
         stationViewHolder.starredToggleView.setOnClickListener {
-            toggleStarredStation(context, stationViewHolder.adapterPosition)
+            toggleStarredStation(context, originalPosition(stationViewHolder.adapterPosition))
         }
         stationViewHolder.playButtonView.setOnClickListener {
-                collectionAdapterListener.onPlayButtonTapped(stationViewHolder.adapterPosition)
+                collectionAdapterListener.onPlayButtonTapped(originalPosition(stationViewHolder.adapterPosition))
         }
         stationViewHolder.stationCardView.setOnClickListener {
             if (tapAnywherePlaybackEnabled) {
@@ -339,11 +392,11 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
             if (event.action == KeyEvent.ACTION_DOWN) {
                 when (keyCode) {
                     KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        toggleStarredStation(context, stationViewHolder.adapterPosition)
+                        toggleStarredStation(context, originalPosition(stationViewHolder.adapterPosition))
                         return@setOnKeyListener true
                     }
                     KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                        showDeleteStationDialog(yesNoDialogListener, stationViewHolder.adapterPosition)
+                        showDeleteStationDialog(yesNoDialogListener, originalPosition(stationViewHolder.adapterPosition))
                         return@setOnKeyListener true
                     }
                     else -> return@setOnKeyListener false
@@ -397,7 +450,7 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
 
         } else if (holder is StationViewHolder) {
             // get station from position
-            val station = collection.stations[holder.getAdapterPosition()]
+            val station = if (holder.adapterPosition in displayIndices.indices) stationForPosition(holder.adapterPosition) else return
 
             // get reference to StationViewHolder
             val stationViewHolder = holder
@@ -436,8 +489,8 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
 
     /* Overrides getItemCount */
     override fun getItemCount(): Int {
-        // +1 ==> the add station card
-        return collection.stations.size + 1
+        // +1 ==> the add station card (stations tab only)
+        return displayIndices.size + if (favoritesOnly) 0 else 1
     }
 
 
@@ -450,7 +503,13 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
         newCollection.stations.removeAt(position)
         collection = newCollection
         // update list
-        notifyItemRemoved(position)
+        when (favoritesOnly) {
+            true -> {
+                rebuildDisplayIndices()
+                notifyDataSetChanged()
+            }
+            false -> notifyItemRemoved(position)
+        }
         // save collection and broadcast changes
         CollectionHelper.saveCollection(context, newCollection, async = false)
     }
@@ -473,7 +532,16 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
         // sort collection
         collection = CollectionHelper.sortCollection(collection)
         // update list
-        notifyItemMoved(position, CollectionHelper.getStationPosition(collection, stationUuid))
+        when (favoritesOnly) {
+            true -> {
+                rebuildDisplayIndices()
+                notifyDataSetChanged()
+            }
+            false -> {
+                rebuildDisplayIndices()
+                notifyItemMoved(position, CollectionHelper.getStationPosition(collection, stationUuid))
+            }
+        }
         // save collection and broadcast changes
         CollectionHelper.saveCollection(context, collection)
     }
@@ -498,10 +566,18 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
         // sort and save collection
         collection = CollectionHelper.sortCollection(collection)
         // update list
-        val newPosition: Int = CollectionHelper.getStationPosition(collection, station.uuid)
-        if (position != newPosition && newPosition != -1) {
-            notifyItemMoved(position, newPosition)
-            notifyItemChanged(position)
+        when (favoritesOnly) {
+            true -> {
+                rebuildDisplayIndices()
+                notifyDataSetChanged()
+            }
+            false -> {
+                val newPosition: Int = CollectionHelper.getStationPosition(collection, station.uuid)
+                if (position != newPosition && newPosition != -1) {
+                    notifyItemMoved(position, newPosition)
+                    notifyItemChanged(position)
+                }
+            }
         }
         // save collection and broadcast changes
         CollectionHelper.saveCollection(context, collection)
@@ -526,14 +602,18 @@ class CollectionAdapter(private val context: Context, private val collectionAdap
 
     /* Determines if position is last */
     private fun isPositionFooter(position: Int): Boolean {
-        return position == collection.stations.size
+        return !favoritesOnly && position == displayIndices.size
     }
 
 
     /* Updates the station list - redraws the views with changed content */
     private fun updateRecyclerView(oldCollection: Collection, newCollection: Collection) {
         collection = newCollection
-        if (oldCollection.stations.size == 0 && newCollection.stations.size > 0) {
+        rebuildDisplayIndices()
+        if (favoritesOnly) {
+            // the filter changes positions - redraw the whole list
+            notifyDataSetChanged()
+        } else if (oldCollection.stations.size == 0 && newCollection.stations.size > 0) {
             // data set has been initialized - redraw the whole list
             notifyDataSetChanged()
         } else {

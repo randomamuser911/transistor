@@ -299,6 +299,20 @@ object PreferencesHelper {
     }
 
 
+    /* Saves the selected station list tab to shared preferences */
+    fun saveStationListTabFavorites(favoritesTabSelected: Boolean) {
+        sharedPreferences.edit {
+            putBoolean(Keys.PREF_STATION_LIST_TAB_FAVORITES, favoritesTabSelected)
+        }
+    }
+
+
+    /* Loads the selected station list tab from shared preferences */
+    fun loadStationListTabFavorites(): Boolean {
+        return sharedPreferences.getBoolean(Keys.PREF_STATION_LIST_TAB_FAVORITES, false)
+    }
+
+
     /* Start watching for changes in shared preferences - context must implement OnSharedPreferenceChangeListener */
     fun registerPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
         sharedPreferences.registerOnSharedPreferenceChangeListener(listener)

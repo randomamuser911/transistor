@@ -29,6 +29,8 @@ import androidx.core.view.updatePadding
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.tabs.TabLayout
 import org.y20k.transistor.Keys
 import org.y20k.transistor.R
 import org.y20k.transistor.helpers.PreferencesHelper
@@ -54,6 +56,9 @@ data class MainFragmentLayoutHolder(var rootView: View) {
     private lateinit var systemBars: Insets
     var recyclerView: RecyclerView
     val layoutManager: LinearLayoutManager
+    val stationTabs: TabLayout
+    val favoritesEmptyLayout: View
+    val favoritesEmptyBrowseButton: MaterialButton
     private var onboardingLayout: ConstraintLayout
     private var onboardingQuoteViews: Group
     private var onboardingImportViews: Group
@@ -64,6 +69,9 @@ data class MainFragmentLayoutHolder(var rootView: View) {
     init {
         // find views
         recyclerView = rootView.findViewById(R.id.station_list)
+        stationTabs = rootView.findViewById(R.id.station_tabs)
+        favoritesEmptyLayout = rootView.findViewById(R.id.favorites_empty_layout)
+        favoritesEmptyBrowseButton = rootView.findViewById(R.id.favorites_empty_browse_button)
         onboardingLayout = rootView.findViewById(R.id.onboarding_layout)
         onboardingQuoteViews = rootView.findViewById(R.id.onboarding_quote_views)
         onboardingImportViews = rootView.findViewById(R.id.onboarding_import_views)
@@ -123,10 +131,15 @@ data class MainFragmentLayoutHolder(var rootView: View) {
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { v, insets ->
             // get measurements for status and navigation bar
             systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
-            // update the list padding to position first item below status bar and have enough room at the bottom to show the player
-            recyclerView.updatePadding(
+            // position the tabs below the status bar
+            stationTabs.updatePadding(
                 left = systemBars.left,
                 top = systemBars.top,
+                right = systemBars.right
+            )
+            // update the list padding - the first item sits right below the tabs and there is enough room at the bottom to show the player
+            recyclerView.updatePadding(
+                left = systemBars.left,
                 right = systemBars.right,
                 bottom = systemBars.bottom + ((Keys.PLAYER_HEIGHT + Keys.PLAYER_BOTTOM_MARGIN) * UiHelper.getDensityScalingFactor(rootView.context)).toInt()
             )

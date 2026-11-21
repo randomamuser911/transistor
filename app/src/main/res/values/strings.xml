@@ -148,6 +148,12 @@
     <string name="dialog_listening_statistics_total">Total listening time</string>
     <string name="dialog_listening_statistics_reset">Reset</string>
     <string name="toast_listening_statistics_reset">Listening statistics cleared</string>
+    <!-- Station List Tabs -->
+    <string name="tab_station_list">Radio Stations</string>
+    <string name="tab_station_favorites">Favorites</string>
+    <string name="favorites_empty_title">No favorites yet</string>
+    <string name="favorites_empty_body">Tap the star on a radio station and it will show up here.</string>
+    <string name="favorites_empty_browse_button">Browse radio stations</string>
     <!-- Onboarding -->
     <string name="onboarding_app_description">Radio App</string>
     <string name="onboarding_app_get_started">Get started</string>
