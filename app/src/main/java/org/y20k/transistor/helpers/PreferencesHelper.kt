@@ -299,17 +299,33 @@ object PreferencesHelper {
     }
 
 
-    /* Saves the selected station list tab to shared preferences */
-    fun saveStationListTabFavorites(favoritesTabSelected: Boolean) {
+    /* Saves the selected station list tab (0 = stations, 1 = favorites, 2 = discover) */
+    fun saveStationListTab(tab: Int) {
         sharedPreferences.edit {
-            putBoolean(Keys.PREF_STATION_LIST_TAB_FAVORITES, favoritesTabSelected)
+            putInt(Keys.PREF_STATION_LIST_TAB, tab)
         }
     }
 
 
-    /* Loads the selected station list tab from shared preferences */
-    fun loadStationListTabFavorites(): Boolean {
-        return sharedPreferences.getBoolean(Keys.PREF_STATION_LIST_TAB_FAVORITES, false)
+    /* Loads the selected station list tab - migrates the old favorites-only flag once */
+    fun loadStationListTab(): Int {
+        val saved: Int = sharedPreferences.getInt(Keys.PREF_STATION_LIST_TAB, -1)
+        if (saved != -1) return saved
+        return if (sharedPreferences.getBoolean(Keys.PREF_STATION_LIST_TAB_FAVORITES, false)) 1 else 0
+    }
+
+
+    /* Saves the selected genre of the Discover tab */
+    fun saveDiscoverGenre(genre: String) {
+        sharedPreferences.edit {
+            putString(Keys.PREF_DISCOVER_GENRE, genre)
+        }
+    }
+
+
+    /* Loads the selected genre of the Discover tab */
+    fun loadDiscoverGenre(): String {
+        return sharedPreferences.getString(Keys.PREF_DISCOVER_GENRE, Keys.DISCOVER_GENRES.first()) ?: Keys.DISCOVER_GENRES.first()
     }
 
 

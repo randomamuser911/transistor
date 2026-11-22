@@ -104,6 +104,14 @@ object Keys {
     const val PREF_EQUALIZER_ENABLED: String = "EQUALIZER_ENABLED"
     const val PREF_EQUALIZER_BAND_LEVELS: String = "EQUALIZER_BAND_LEVELS"
     const val PREF_STATION_LIST_TAB_FAVORITES: String = "STATION_LIST_TAB_FAVORITES"
+    const val PREF_STATION_LIST_TAB: String = "STATION_LIST_TAB"
+    const val PREF_DISCOVER_GENRE: String = "DISCOVER_GENRE"
+
+    /* Genres offered in the Discover tab - empty string means "Popular" (no tag filter) */
+    val DISCOVER_GENRES: List<String> = listOf(
+        "Popular", "Rock", "Pop", "Jazz", "Electronic", "Classical", "Hip Hop", "News",
+        "Dance", "Oldies", "Country", "Reggae", "Metal", "Blues", "Latin", "World"
+    )
     const val PREF_TAP_ANYWHERE_PLAYBACK: String = "TAP_ANYWHERE_PLAYBACK"
     const val PREF_DYNAMIC_COLORS: String = "DYNAMIC_COLORS"
     const val PREF_LARGE_BUFFER_SIZE: String = "LARGE_BUFFER_SIZE"
@@ -154,6 +162,7 @@ object Keys {
     // search types
     const val SEARCH_TYPE_BY_KEYWORD = 0
     const val SEARCH_TYPE_BY_UUID = 1
+    const val SEARCH_TYPE_BY_TAG = 2
 
     // file types
     const val FILE_TYPE_DEFAULT: Int = 0

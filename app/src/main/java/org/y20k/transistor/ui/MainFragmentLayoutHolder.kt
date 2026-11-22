@@ -30,6 +30,7 @@ import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.chip.ChipGroup
 import com.google.android.material.tabs.TabLayout
 import org.y20k.transistor.Keys
 import org.y20k.transistor.R
@@ -59,6 +60,11 @@ data class MainFragmentLayoutHolder(var rootView: View) {
     val stationTabs: TabLayout
     val favoritesEmptyLayout: View
     val favoritesEmptyBrowseButton: MaterialButton
+    val discoverLayout: View
+    val discoverChipGroup: ChipGroup
+    val discoverRecyclerView: RecyclerView
+    val discoverProgress: View
+    val discoverError: View
     private var onboardingLayout: ConstraintLayout
     private var onboardingQuoteViews: Group
     private var onboardingImportViews: Group
@@ -72,6 +78,14 @@ data class MainFragmentLayoutHolder(var rootView: View) {
         stationTabs = rootView.findViewById(R.id.station_tabs)
         favoritesEmptyLayout = rootView.findViewById(R.id.favorites_empty_layout)
         favoritesEmptyBrowseButton = rootView.findViewById(R.id.favorites_empty_browse_button)
+        discoverLayout = rootView.findViewById(R.id.discover_layout)
+        discoverChipGroup = rootView.findViewById(R.id.discover_chip_group)
+        discoverRecyclerView = rootView.findViewById(R.id.discover_list)
+        discoverProgress = rootView.findViewById(R.id.discover_progress)
+        discoverError = rootView.findViewById(R.id.discover_error)
+        // set up RecyclerView of the Discover tab
+        discoverRecyclerView.layoutManager = LinearLayoutManager(rootView.context)
+        discoverRecyclerView.itemAnimator = DefaultItemAnimator()
         onboardingLayout = rootView.findViewById(R.id.onboarding_layout)
         onboardingQuoteViews = rootView.findViewById(R.id.onboarding_quote_views)
         onboardingImportViews = rootView.findViewById(R.id.onboarding_import_views)
@@ -139,6 +153,12 @@ data class MainFragmentLayoutHolder(var rootView: View) {
             )
             // update the list padding - the first item sits right below the tabs and there is enough room at the bottom to show the player
             recyclerView.updatePadding(
+                left = systemBars.left,
+                right = systemBars.right,
+                bottom = systemBars.bottom + ((Keys.PLAYER_HEIGHT + Keys.PLAYER_BOTTOM_MARGIN) * UiHelper.getDensityScalingFactor(rootView.context)).toInt()
+            )
+            // same bottom padding for the Discover list
+            discoverRecyclerView.updatePadding(
                 left = systemBars.left,
                 right = systemBars.right,
                 bottom = systemBars.bottom + ((Keys.PLAYER_HEIGHT + Keys.PLAYER_BOTTOM_MARGIN) * UiHelper.getDensityScalingFactor(rootView.context)).toInt()

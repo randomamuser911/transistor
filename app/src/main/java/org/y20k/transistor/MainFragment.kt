@@ -42,11 +42,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.transition.MaterialSharedAxis
+import com.google.android.material.chip.Chip
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import org.y20k.transistor.collection.CollectionAdapter
 import org.y20k.transistor.collection.CollectionViewModel
@@ -64,6 +66,9 @@ import org.y20k.transistor.helpers.PreferencesHelper
 import com.google.android.material.tabs.TabLayout
 import org.y20k.transistor.helpers.UiHelper
 import org.y20k.transistor.helpers.UpdateHelper
+import org.y20k.transistor.search.DiscoverAdapter
+import org.y20k.transistor.search.RadioBrowserResult
+import org.y20k.transistor.search.RadioBrowserSearch
 import org.y20k.transistor.ui.MainFragmentLayoutHolder
 
 
@@ -74,7 +79,9 @@ class MainFragment: Fragment(),
     FindStationDialog.FindStationDialogListener,
     AddStationDialog.AddStationDialogListener,
     CollectionAdapter.CollectionAdapterListener,
-    YesNoDialog.YesNoDialogListener {
+    YesNoDialog.YesNoDialogListener,
+    RadioBrowserSearch.RadioBrowserSearchListener,
+    DiscoverAdapter.DiscoverAdapterListener {
 
     /* Define log tag */
     private val TAG: String = MainFragment::class.java.simpleName
@@ -84,6 +91,10 @@ class MainFragment: Fragment(),
     lateinit var layout: MainFragmentLayoutHolder
     private lateinit var collectionViewModel: CollectionViewModel
     private lateinit var collectionAdapter: CollectionAdapter
+    private lateinit var discoverAdapter: DiscoverAdapter
+    private var radioBrowserSearch: RadioBrowserSearch? = null
+    private var discoverLoaded: Boolean = false
+    private var selectedDiscoverGenre: String = PreferencesHelper.loadDiscoverGenre()
     private var collection: Collection = Collection()
     private var listLayoutState: Parcelable? = null
     private var tempStationUuid: String = String()
@@ -326,15 +337,14 @@ class MainFragment: Fragment(),
     }
 
 
-    /* Sets up the tabs that switch between all stations and favorites */
+    /* Sets up the tabs that switch between all stations, favorites and discover */
     private fun initializeTabs() {
-        // tab selection switches the list filter
+        // tab selection switches the visible content
         layout.stationTabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) {
-                val favoritesTabSelected: Boolean = tab.position == 1
-                PreferencesHelper.saveStationListTabFavorites(favoritesTabSelected)
-                collectionAdapter.setFavoritesOnly(favoritesTabSelected)
-                updateFavoritesEmptyState()
+                PreferencesHelper.saveStationListTab(tab.position)
+                collectionAdapter.setFavoritesOnly(tab.position == 1)
+                updateTabViews()
             }
             override fun onTabUnselected(tab: TabLayout.Tab) { }
             override fun onTabReselected(tab: TabLayout.Tab) { }
@@ -343,19 +353,107 @@ class MainFragment: Fragment(),
         layout.favoritesEmptyBrowseButton.setOnClickListener {
             layout.stationTabs.getTabAt(0)?.select()
         }
-        // restore last selected tab
-        if (PreferencesHelper.loadStationListTabFavorites()) {
-            layout.stationTabs.getTabAt(1)?.select()
+        // set up the Discover tab content
+        initializeDiscover()
+        // restore last selected tab (triggers onTabSelected when it differs from the default)
+        val savedTab: Int = PreferencesHelper.loadStationListTab().coerceIn(0, layout.stationTabs.tabCount - 1)
+        if (savedTab != 0) {
+            layout.stationTabs.getTabAt(savedTab)?.select()
+        } else {
+            updateTabViews()
         }
     }
 
 
-    /* Toggles the favorites empty state and hides the tabs when there are no stations at all */
-    fun updateFavoritesEmptyState() {
+    /* Sets up the Discover tab - genre chips and the list of results */
+    private fun initializeDiscover() {
+        // adapter and list
+        discoverAdapter = DiscoverAdapter(this)
+        layout.discoverRecyclerView.adapter = discoverAdapter
+        updateDiscoverAddedUuids()
+        // build one chip per genre
+        Keys.DISCOVER_GENRES.forEach { genre ->
+            val chip: Chip = layoutInflater.inflate(R.layout.item_discover_chip, layout.discoverChipGroup, false) as Chip
+            chip.text = genre
+            chip.id = View.generateViewId()
+            chip.isChecked = genre == selectedDiscoverGenre
+            chip.setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) {
+                    selectedDiscoverGenre = genre
+                    PreferencesHelper.saveDiscoverGenre(genre)
+                    loadDiscoverResults()
+                }
+            }
+            layout.discoverChipGroup.addView(chip)
+        }
+        // tapping the error text retries the last request
+        layout.discoverError.setOnClickListener { loadDiscoverResults() }
+    }
+
+
+    /* Loads the stations of the currently selected genre from radio-browser.info */
+    private fun loadDiscoverResults() {
+        // "Popular" lists the most clicked stations across all genres
+        val tag: String = if (selectedDiscoverGenre == Keys.DISCOVER_GENRES.first()) String() else selectedDiscoverGenre.lowercase()
+        layout.discoverProgress.isVisible = true
+        layout.discoverError.isGone = true
+        if (radioBrowserSearch == null) radioBrowserSearch = RadioBrowserSearch(this)
+        radioBrowserSearch?.searchStation(requireContext(), tag, Keys.SEARCH_TYPE_BY_TAG)
+    }
+
+
+    /* Updates the set of discover results that are already in the collection */
+    private fun updateDiscoverAddedUuids() {
+        if (this::discoverAdapter.isInitialized) {
+            discoverAdapter.setAddedStationUuids(collection.stations.map { it.radioBrowserStationUuid }.filter { it.isNotEmpty() }.toSet())
+        }
+    }
+
+
+    /* Overrides onRadioBrowserSearchResults from RadioBrowserSearchListener */
+    override fun onRadioBrowserSearchResults(results: Array<RadioBrowserResult>) {
         if (!this::layout.isInitialized) return
+        // keep only stations with a playable stream that were online at the last check
+        discoverAdapter.setResults(results.filter { it.url_resolved.isNotEmpty() && it.lastcheckok == 1 })
+        discoverLoaded = true
+        layout.discoverProgress.isGone = true
+        layout.discoverError.isGone = true
+        updateDiscoverAddedUuids()
+    }
+
+
+    /* Overrides onRadioBrowserSearchError from RadioBrowserSearchListener */
+    override fun onRadioBrowserSearchError() {
+        if (!this::layout.isInitialized) return
+        layout.discoverProgress.isGone = true
+        layout.discoverError.isVisible = true
+    }
+
+
+    /* Overrides onDiscoverResultTapped from DiscoverAdapterListener - adds the station to the collection */
+    override fun onDiscoverResultTapped(result: RadioBrowserResult) {
+        // stations already in the collection are not added twice
+        if (collection.stations.any { it.radioBrowserStationUuid.isNotEmpty() && it.radioBrowserStationUuid == result.stationuuid }) return
+        Toast.makeText(context, getString(R.string.discover_station_added, result.name), Toast.LENGTH_SHORT).show()
+        // reuse the add flow of the find-station dialog (detects the stream content type if necessary)
+        onFindStationDialog(result.toStation())
+    }
+
+
+    /* Toggles the views of the three tabs depending on the selected tab and the collection state */
+    fun updateTabViews() {
+        if (!this::layout.isInitialized) return
+        val selectedTab: Int = layout.stationTabs.selectedTabPosition
         val favoritesCount: Int = collection.stations.count { it.starred }
         layout.stationTabs.isVisible = collection.stations.isNotEmpty()
-        layout.favoritesEmptyLayout.isVisible = collectionAdapter.isFavoritesOnly() && favoritesCount == 0 && collection.stations.isNotEmpty()
+        layout.favoritesEmptyLayout.isVisible = selectedTab == 1 && favoritesCount == 0 && collection.stations.isNotEmpty()
+        layout.recyclerView.isVisible = selectedTab != 2 && collection.stations.isNotEmpty()
+        layout.discoverLayout.isVisible = selectedTab == 2 && collection.stations.isNotEmpty()
+        updateDiscoverAddedUuids()
+        // load the discover list the first time the tab becomes visible
+        if (layout.discoverLayout.isVisible && !discoverLoaded) {
+            loadDiscoverResults()
+        }
     }
 
 
@@ -478,7 +576,7 @@ class MainFragment: Fragment(),
                 
                 // toggle the onboarding view if necessary and export the collection
                 layout.toggleOnboarding(collection.stations.size)
-                updateFavoritesEmptyState()
+                updateTabViews()
                 if (collection.stations.size > 0) {
                     CoroutineScope(IO).launch {
                         FileHelper.backupCollectionAsM3u(requireContext(), collection)

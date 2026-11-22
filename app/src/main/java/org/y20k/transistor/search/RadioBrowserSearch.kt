@@ -15,6 +15,7 @@
 package org.y20k.transistor.search
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.android.volley.AuthFailureError
 import com.android.volley.RequestQueue
@@ -41,6 +42,9 @@ class RadioBrowserSearch(private var radioBrowserSearchListener: RadioBrowserSea
     /* Interface used to send back search results */
     interface RadioBrowserSearchListener {
         fun onRadioBrowserSearchResults(results: Array<RadioBrowserResult>) {
+        }
+
+        fun onRadioBrowserSearchError() {
         }
     }
 
@@ -72,6 +76,11 @@ class RadioBrowserSearch(private var radioBrowserSearchListener: RadioBrowserSea
         when (searchType) {
             // CASE: single station search - by radio browser UUID
             Keys.SEARCH_TYPE_BY_UUID -> requestUrl = "https://${radioBrowserApi}/json/stations/byuuid/${query}"
+            // CASE: discover - list stations by tag, sorted by popularity, online only
+            Keys.SEARCH_TYPE_BY_TAG -> {
+                val tagFilter: String = if (query.isNotEmpty()) "&tagList=${Uri.encode(query)}" else String()
+                requestUrl = "https://${radioBrowserApi}/json/stations/search?order=clickcount&reverse=true&hidebroken=true&limit=100${tagFilter}"
+            }
             // CASE: multiple results search by search term
             else -> requestUrl = "https://${radioBrowserApi}/json/stations/search?name=${query.replace(" ", "+")}"
         }
@@ -139,6 +148,7 @@ class RadioBrowserSearch(private var radioBrowserSearchListener: RadioBrowserSea
     /* Listens for error response from server */
     private val errorListener: Response.ErrorListener = Response.ErrorListener { error ->
         Log.w(TAG, "Error: $error")
+        radioBrowserSearchListener.onRadioBrowserSearchError()
     }
 
 }

@@ -30,6 +30,12 @@
             android:icon="@drawable/ic_star_default_24dp"
             android:text="@string/tab_station_favorites" />
 
+        <com.google.android.material.tabs.TabItem
+            android:id="@+id/station_tab_discover"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/tab_discover" />
+
     </com.google.android.material.tabs.TabLayout>
 
     <androidx.coordinatorlayout.widget.CoordinatorLayout
@@ -59,6 +65,11 @@
         <!-- FAVORITES EMPTY STATE -->
         <include
             layout="@layout/element_favorites_empty"
+            android:visibility="gone" />
+
+        <!-- DISCOVER -->
+        <include
+            layout="@layout/element_discover"
             android:visibility="gone" />
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -269,8 +269,8 @@ data class MainActivityLayoutHolder (var rootView: View) : MainFragmentLayoutHol
             backdropKey = imageFile.lastModified().toString() + station.uuid
             val sampled: android.graphics.Bitmap? = ImageHelper.decodeSampledBitmap(imageFile.absolutePath, 48)
             if (sampled != null) {
-                ImageHelper.boxBlur(sampled, radius = 4, passes = 3)
-                val blurredDrawable: android.graphics.drawable.BitmapDrawable = android.graphics.drawable.BitmapDrawable(playerSheetView.context.resources, sampled)
+                val blurred: android.graphics.Bitmap = ImageHelper.boxBlur(sampled, radius = 4, passes = 3)
+                val blurredDrawable: android.graphics.drawable.BitmapDrawable = android.graphics.drawable.BitmapDrawable(playerSheetView.context.resources, blurred)
                 // dark scrim on top of the art so text stays legible - tinted with the station color when available
                 val scrimColor: Int = if (station.imageColor != -1) {
                     androidx.core.graphics.ColorUtils.blendARGB(station.imageColor, Color.BLACK, 0.72f)

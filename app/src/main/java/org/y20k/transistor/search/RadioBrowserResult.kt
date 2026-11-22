@@ -30,6 +30,11 @@ data class RadioBrowserResult (@Expose val changeuuid: String,
                                @Expose val url_resolved: String,
                                @Expose val homepage: String,
                                @Expose val favicon: String,
+                               @Expose val tags: String = String(),
+                               @Expose val countrycode: String = String(),
+                               @Expose val language: String = String(),
+                               @Expose val votes: Int = 0,
+                               @Expose val lastcheckok: Int = 1,
                                @Expose val codec: String,
                                @Expose val bitrate: Int) {
 

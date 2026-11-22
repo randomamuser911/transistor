@@ -154,6 +154,10 @@
     <string name="favorites_empty_title">No favorites yet</string>
     <string name="favorites_empty_body">Tap the star on a radio station and it will show up here.</string>
     <string name="favorites_empty_browse_button">Browse radio stations</string>
+    <!-- Discover -->
+    <string name="tab_discover">Discover</string>
+    <string name="discover_error">Could not load stations. Check your connection and tap a genre to try again.</string>
+    <string name="discover_station_added">Added %1$s</string>
     <!-- Onboarding -->
     <string name="onboarding_app_description">Radio App</string>
     <string name="onboarding_app_get_started">Get started</string>

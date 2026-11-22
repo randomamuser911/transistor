@@ -48,7 +48,7 @@ object ImageHelper {
     }
 
 
-    /* Blurs a (small) bitmap in place using a fast box blur */
+    /* Blurs a (small) bitmap and returns the blurred copy using a fast box blur */
     fun boxBlur(source: Bitmap, radius: Int, passes: Int = 2): Bitmap {
         val width: Int = source.width
         val height: Int = source.height
@@ -58,8 +58,10 @@ object ImageHelper {
             boxBlurHorizontal(pixels, width, height, radius)
             boxBlurVertical(pixels, width, height, radius)
         }
-        source.setPixels(pixels, 0, width, 0, 0, width, height)
-        return source
+        // decoded bitmaps are immutable - write the result into a mutable bitmap
+        val blurred: Bitmap = if (source.isMutable) source else Bitmap.createBitmap(width, height, source.config ?: Bitmap.Config.ARGB_8888)
+        blurred.setPixels(pixels, 0, width, 0, 0, width, height)
+        return blurred
     }
 
 
